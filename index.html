@@ -69,6 +69,7 @@
     .card .body{padding:14px 16px}
     .form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
     .form-row.one{grid-template-columns:1fr}
+    .form-row.four{grid-template-columns:repeat(4,1fr)}
     label span{display:block;color:#475569;font-size:12px;font-weight:700;margin-bottom:5px}
     input,select,textarea{
       width:100%;
@@ -116,7 +117,7 @@
     .calc-line{font-size:12px;color:#475569;display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
     .calc-line b{color:#0f172a}
     .status-low{color:#b91c1c;font-weight:800}.status-good{color:#15803d;font-weight:800}.status-mid{color:#b45309;font-weight:800}
-    .stat-editor{display:grid;grid-template-columns:1.35fr .7fr .7fr .7fr .7fr;gap:8px;align-items:end;margin-bottom:8px;border-bottom:1px dashed #d8e0ea;padding-bottom:8px}
+    .stat-editor{display:grid;grid-template-columns:1.3fr .7fr .7fr .7fr .7fr .7fr;gap:8px;align-items:end;margin-bottom:8px;border-bottom:1px dashed #d8e0ea;padding-bottom:8px}
     .stat-editor strong{font-size:12px}.stat-editor label span{font-size:11px}
     .summary-cards{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:10px;margin-bottom:12px}
     .summary-card{border:1px solid #dbe3ee;background:#fff;border-radius:12px;padding:12px}
@@ -129,7 +130,7 @@
     .firebase-pill{background:#ecfeff;color:#155e75;border:1px solid #a5f3fc;padding:7px 10px}
     .small-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
     .print-only{display:none}
-    @media (max-width: 1080px){.grid{grid-template-columns:1fr}.summary-cards{grid-template-columns:repeat(2,1fr)}.table-wrap{max-height:62vh}}
+    @media (max-width: 1080px){.grid{grid-template-columns:1fr}.summary-cards{grid-template-columns:repeat(2,1fr)}.table-wrap{max-height:62vh}.form-row.four,.stat-editor{grid-template-columns:1fr 1fr}}
     @media print{
       body{background:white}.grid,.actions,.tabs,.no-print{display:none!important}.print-only{display:block!important}
       header{position:static;border:0}.container{max-width:none;margin:0;padding:0}.card{box-shadow:none;border:0}.section{display:block!important;padding:0}.table-wrap{overflow:visible;max-height:none;border:0}table{font-size:9px}th,td{padding:3px}.date-col{position:static}th{position:static}
@@ -147,7 +148,9 @@
     <span class="pill firebase-pill" id="firebaseStatus">☁️ Firebase: กำลังเชื่อมต่อ...</span>
     <button class="primary" id="saveBtn">💾 บันทึกวันนี้</button>
     <button class="ghost" id="syncNowBtn">🔄 ซิงก์ Firebase</button>
-    <button class="success" id="exportXlsBtn">📗 ส่งออก Excel</button>
+    <button class="success" id="exportXlsBtn">📗 ส่งออก Excel STP/PTR</button>
+    <button class="ghost" id="exportStpBtn">⬇️ STP</button>
+    <button class="ghost" id="exportPtrBtn">⬇️ PTR</button>
     <button class="ghost" id="printBtn">🖨️ พิมพ์</button>
     <button class="warning" id="openSettingBtn">⚙️ ตั้งค่าสถิติ</button>
     <button class="ghost" id="backupBtn">⬇️ สำรอง JSON</button>
@@ -177,7 +180,7 @@
           <button class="ghost" id="fillYesterdayBtn">↩️ ใส่ยอดนับวันนี้ = ยอดเมื่อวาน</button>
           <button class="ghost" id="clearEntryBtn">🧹 ล้างฟอร์ม</button>
         </div>
-        <p class="hint">วิธีคิด: โปรแกรมจะใช้ <b>ยอดคงเหลือเมื่อวาน + รับเข้า - ยอดนับจริงวันนี้</b> = เบิกใช้จริง แล้วแบ่งให้ STP/PTR ตามสถิติต่อ 1 ตู้ของแต่ละรายการ เพื่อให้ยอดคงเหลือสุดท้ายตรงกับที่นับจริง ✅</p>
+        <p class="hint">วิธีคิด: พิมพ์ตัวเลขให้ครบก่อน แล้วกด <b>Enter</b> เพื่อคำนวณ/เทียบยอดใหม่ ✅ ระบบจะใช้ <b>ยอดคงเหลือเมื่อวาน + รับเข้า - ยอดนับจริงวันนี้</b> = เบิกใช้จริง แล้วแบ่งให้ STP/PTR ตามสถิติต่อ 1 ตู้ และเก็บยอดคงเหลือแยก STP/PTR สำหรับส่งออก Excel</p>
         <hr style="border:0;border-top:1px solid #e2e8f0;margin:12px 0">
         <div id="entryList" class="entry-list"></div>
       </div>
@@ -238,20 +241,20 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/fireba
 import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 (() => {
-  const STORAGE_KEY = 'packagingMaterialStock_STP_PTR_firebase_blank_v2';
+  const STORAGE_KEY = 'packagingMaterialStock_STP_PTR_firebase_blank_v3';
   const monthNamesTH = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
   const defaultItems = [
-    {id:'paper_roll', name:'กระดาษ แบบม้วน', unit:'Rolls / ม้วน', start:0, min:0, stpRate:4.0, ptrRate:3.0},
-    {id:'cable_tie', name:'มัดสายเคเบิล', unit:'Pack / ห่อ', start:0, min:0, stpRate:120, ptrRate:100},
-    {id:'yellow_tape', name:'เทปสีเหลือง', unit:'Rolls', start:0, min:0, stpRate:1.5, ptrRate:1.2},
-    {id:'masking_tape', name:'เทปกาวย่น สีขาว', unit:'Rolls', start:0, min:0, stpRate:1.0, ptrRate:1.0},
-    {id:'black_spray', name:'สีสเปรย์ สีดำ', unit:'Cans / กระป๋อง', start:0, min:0, stpRate:0.7, ptrRate:0.6},
-    {id:'cover_bag', name:'ถุงคลุม', unit:'60 / ถุง', start:0, min:0, stpRate:55, ptrRate:50},
-    {id:'spray_remover', name:'น้ำยาลบสีสเปรย์', unit:'Gallons', start:0, min:0, stpRate:0.10, ptrRate:0.10},
-    {id:'red_nylon_rope', name:'เชือกไนล่อนสีแดง', unit:'Rolls / ม้วน', start:0, min:0, stpRate:0.25, ptrRate:0.25},
-    {id:'raffia_rope', name:'เชือกฟาง', unit:'Rolls / ม้วน', start:0, min:0, stpRate:0.35, ptrRate:0.35},
-    {id:'wrap_film', name:'ฟิล์มแล็ป', unit:'Rolls / ม้วน', start:0, min:0, stpRate:0.10, ptrRate:0.10},
-    {id:'china_plastic', name:'พลาสติกปิดตู้ไปจีน', unit:'Rolls / ม้วน', start:0, min:0, stpRate:0.15, ptrRate:0.15},
+    {id:'paper_roll', name:'กระดาษ แบบม้วน', unit:'Rolls / ม้วน', stpStart:0, ptrStart:0, min:0, stpRate:4.0, ptrRate:3.0},
+    {id:'cable_tie', name:'มัดสายเคเบิล', unit:'Pack / ห่อ', stpStart:0, ptrStart:0, min:0, stpRate:120, ptrRate:100},
+    {id:'yellow_tape', name:'เทปสีเหลือง', unit:'Rolls', stpStart:0, ptrStart:0, min:0, stpRate:1.5, ptrRate:1.2},
+    {id:'masking_tape', name:'เทปกาวย่น สีขาว', unit:'Rolls', stpStart:0, ptrStart:0, min:0, stpRate:1.0, ptrRate:1.0},
+    {id:'black_spray', name:'สีสเปรย์ สีดำ', unit:'Cans / กระป๋อง', stpStart:0, ptrStart:0, min:0, stpRate:0.7, ptrRate:0.6},
+    {id:'cover_bag', name:'ถุงคลุม', unit:'50 / ห่อ', stpStart:0, ptrStart:0, min:0, stpRate:55, ptrRate:50},
+    {id:'spray_remover', name:'น้ำยาลบสีสเปรย์', unit:'Gallons', stpStart:0, ptrStart:0, min:0, stpRate:0.10, ptrRate:0.10},
+    {id:'red_nylon_rope', name:'เชือกไนล่อนสีแดง', unit:'Rolls / ม้วน', stpStart:0, ptrStart:0, min:0, stpRate:0.25, ptrRate:0.25},
+    {id:'raffia_rope', name:'เชือกฟาง', unit:'Rolls / ม้วน', stpStart:0, ptrStart:0, min:0, stpRate:0.35, ptrRate:0.35},
+    {id:'wrap_film', name:'ฟิมล์แล็ป', unit:'Rolls / ม้วน', stpStart:0, ptrStart:0, min:0, stpRate:0.10, ptrRate:0.10},
+    {id:'china_plastic', name:'พลาสติกปิดตู้ไปจีน', unit:'Rolls / ม้วน', stpStart:0, ptrStart:0, min:0, stpRate:0.15, ptrRate:0.15},
   ];
   const firebaseConfig = {
     apiKey: "AIzaSyB5D1UwPd8CzxYiDHFKAMPnhmffDrtKNj0",
@@ -267,12 +270,14 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
   const $$ = sel => [...document.querySelectorAll(sel)];
   const todayISO = () => new Date(Date.now() - new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
   const num = v => Number.isFinite(+v) ? +v : 0;
+  const isBlank = v => v === '' || v === null || v === undefined;
+  const clamp = v => Math.max(0, num(v));
   const fmt = v => {
     const n = Number(v || 0);
     if (Math.abs(n - Math.round(n)) < 0.0001) return String(Math.round(n));
     return n.toLocaleString('th-TH',{maximumFractionDigits:2});
   };
-  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
   const parseISO = iso => { const [y,m,d] = iso.split('-').map(Number); return new Date(y,m-1,d); };
   const dateText = iso => {
     if(!iso) return '';
@@ -281,13 +286,29 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     return `${d.getDate()} ${monthNamesTH[d.getMonth()]} ${y}`;
   };
   const getMonthKey = iso => iso ? iso.slice(0,7) : todayISO().slice(0,7);
-  const addDays = (iso, days) => {
-    const d = parseISO(iso); d.setDate(d.getDate()+days);
-    return new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10);
-  };
 
   function createEmptyState(){
     return {items: structuredClone(defaultItems), records:{}, settings:{stpName:'STP', ptrName:'PTR'}};
+  }
+  function itemTotalStart(item){ return num(item.stpStart) + num(item.ptrStart); }
+  function normalizeItem(item){
+    const base = defaultItems.find(x => x.id === item.id) || item;
+    const out = Object.assign({}, base, item || {});
+    if(out.stpStart === undefined && out.ptrStart === undefined){
+      out.stpStart = num(out.start);
+      out.ptrStart = 0;
+    }
+    out.stpStart = num(out.stpStart);
+    out.ptrStart = num(out.ptrStart);
+    out.start = itemTotalStart(out);
+    out.min = num(out.min);
+    out.stpRate = num(out.stpRate);
+    out.ptrRate = num(out.ptrRate);
+    return out;
+  }
+  function mergeItems(items){
+    const map = new Map((items || []).map(x => [x.id, x]));
+    return defaultItems.map(d => normalizeItem(Object.assign({}, d, map.get(d.id) || {})));
   }
   function normalizeState(s){
     const normalized = s && typeof s === 'object' ? s : createEmptyState();
@@ -296,58 +317,34 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     normalized.settings = Object.assign({stpName:'STP', ptrName:'PTR'}, normalized.settings || {});
     return normalized;
   }
-
   function loadState(){
     try{
       const raw = localStorage.getItem(STORAGE_KEY);
-      if(raw){
-        const s = JSON.parse(raw);
-        return normalizeState(s);
-      }
+      if(raw) return normalizeState(JSON.parse(raw));
     }catch(e){console.warn(e)}
     return createEmptyState();
   }
-  function mergeItems(items){
-    const map = new Map(items.map(x => [x.id, x]));
-    return defaultItems.map(d => Object.assign({}, d, map.get(d.id) || {}));
-  }
+
   let state = loadState();
   let firebaseReady = false;
   let firebaseDocRef = null;
   let applyingCloudState = false;
   let cloudSaveTimer = null;
 
-  function setFirebaseStatus(text){
-    const el = $('#firebaseStatus');
-    if(el) el.textContent = text;
-  }
-  function saveLocalState(){
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }
-  function saveState(){
-    saveLocalState();
-    queueCloudSave();
-  }
-  function stateForCloud(){
-    return JSON.parse(JSON.stringify(state));
-  }
+  function setFirebaseStatus(text){ const el = $('#firebaseStatus'); if(el) el.textContent = text; }
+  function saveLocalState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+  function saveState(){ saveLocalState(); queueCloudSave(); }
+  function stateForCloud(){ return JSON.parse(JSON.stringify(state)); }
   function queueCloudSave(){
     if(!firebaseReady || !firebaseDocRef || applyingCloudState) return;
     clearTimeout(cloudSaveTimer);
     cloudSaveTimer = setTimeout(() => saveCloudState(false), 500);
   }
   async function saveCloudState(showAlert){
-    if(!firebaseReady || !firebaseDocRef){
-      if(showAlert) alert('Firebase ยังไม่พร้อมใช้งาน');
-      return;
-    }
+    if(!firebaseReady || !firebaseDocRef){ if(showAlert) alert('Firebase ยังไม่พร้อมใช้งาน'); return; }
     try{
       setFirebaseStatus('☁️ Firebase: กำลังบันทึก...');
-      await setDoc(firebaseDocRef, {
-        state: stateForCloud(),
-        schema: 'loading-equipment-stock-v2',
-        updatedAt: new Date().toISOString()
-      }, {merge:true});
+      await setDoc(firebaseDocRef, {state: stateForCloud(), schema:'loading-equipment-stock-v3', updatedAt:new Date().toISOString()}, {merge:true});
       setFirebaseStatus('☁️ Firebase: บันทึกแล้ว ✅');
       if(showAlert) alert('ซิงก์ Firebase เรียบร้อยแล้ว ✅');
     }catch(err){
@@ -371,53 +368,80 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
       firebaseDocRef = doc(db, ...FIREBASE_DOC_PATH);
       firebaseReady = true;
       setFirebaseStatus('☁️ Firebase: เชื่อมต่อแล้ว');
-
       const snap = await getDoc(firebaseDocRef);
       if(snap.exists() && snap.data()?.state){
         applyCloudState(snap.data().state);
         setFirebaseStatus('☁️ Firebase: โหลดข้อมูลแล้ว ✅');
       }else{
-        await setDoc(firebaseDocRef, {
-          state: stateForCloud(),
-          schema: 'loading-equipment-stock-v2',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }, {merge:true});
+        await setDoc(firebaseDocRef, {state: stateForCloud(), schema:'loading-equipment-stock-v3', createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()}, {merge:true});
         setFirebaseStatus('☁️ Firebase: เริ่มฐานข้อมูลใหม่ ✅');
       }
-
       onSnapshot(firebaseDocRef, snap => {
         const data = snap.data();
         if(!data?.state) return;
         applyCloudState(data.state);
         setFirebaseStatus('☁️ Firebase: อัปเดตล่าสุด ✅');
-      }, err => {
-        console.warn(err);
-        setFirebaseStatus('☁️ Firebase: อ่านข้อมูลไม่ได้');
-      });
-    }catch(err){
-      console.warn(err);
-      setFirebaseStatus('☁️ Firebase: ออฟไลน์ / ใช้ในเครื่อง');
-    }
+      }, err => { console.warn(err); setFirebaseStatus('☁️ Firebase: อ่านข้อมูลไม่ได้'); });
+    }catch(err){ console.warn(err); setFirebaseStatus('☁️ Firebase: ออฟไลน์ / ใช้ในเครื่อง'); }
   }
 
   function previousRecordBefore(iso){
     const dates = Object.keys(state.records).filter(d => d < iso).sort();
     return dates.length ? state.records[dates[dates.length-1]] : null;
   }
-  function getPrevStock(iso, item){
+  function getPrevSideStock(iso, item, side){
     const prev = previousRecordBefore(iso);
-    if(prev && prev.items && prev.items[item.id]) return num(prev.items[item.id].remain);
-    return num(item.start);
+    const key = side === 'stp' ? 'stpRemain' : 'ptrRemain';
+    if(prev?.items?.[item.id] && prev.items[item.id][key] !== undefined) return num(prev.items[item.id][key]);
+    if(prev?.items?.[item.id]?.remain !== undefined){
+      const totalStart = itemTotalStart(item);
+      const ratio = totalStart > 0 ? (side === 'stp' ? num(item.stpStart)/totalStart : num(item.ptrStart)/totalStart) : (side === 'stp' ? 1 : 0);
+      return side === 'stp' ? Math.round(num(prev.items[item.id].remain) * ratio) : num(prev.items[item.id].remain) - Math.round(num(prev.items[item.id].remain) * ratio);
+    }
+    return side === 'stp' ? num(item.stpStart) : num(item.ptrStart);
   }
+  function getPrevStock(iso, item){ return getPrevSideStock(iso, item, 'stp') + getPrevSideStock(iso, item, 'ptr'); }
   function getRecord(iso){ return state.records[iso] || null; }
 
+  function splitReceive(item, entry, iso, stpLoads, ptrLoads){
+    const hasTotal = !isBlank(entry?.receive);
+    const hasStp = !isBlank(entry?.stpReceive);
+    const hasPtr = !isBlank(entry?.ptrReceive);
+    let stpReceive = hasStp ? clamp(entry.stpReceive) : 0;
+    let ptrReceive = hasPtr ? clamp(entry.ptrReceive) : 0;
+    let receive = hasTotal ? clamp(entry.receive) : stpReceive + ptrReceive;
+    if(hasStp && hasPtr){
+      receive = stpReceive + ptrReceive;
+    }else if(hasStp && !hasPtr){
+      ptrReceive = Math.max(0, receive - stpReceive);
+    }else if(!hasStp && hasPtr){
+      stpReceive = Math.max(0, receive - ptrReceive);
+    }else{
+      const prevStp = getPrevSideStock(iso, item, 'stp');
+      const prevPtr = getPrevSideStock(iso, item, 'ptr');
+      const stockTotal = prevStp + prevPtr;
+      let stpRatio = stockTotal > 0 ? prevStp / stockTotal : 0;
+      if(stockTotal <= 0){
+        const expectedTotal = stpLoads * num(item.stpRate) + ptrLoads * num(item.ptrRate);
+        stpRatio = expectedTotal > 0 ? (stpLoads * num(item.stpRate)) / expectedTotal : 0.5;
+      }
+      stpReceive = Math.round(receive * stpRatio);
+      ptrReceive = receive - stpReceive;
+    }
+    return {receive, stpReceive, ptrReceive};
+  }
+
   function computeItem(item, entry, iso, stpLoads, ptrLoads){
-    const prevStock = getPrevStock(iso, item);
-    const receive = Math.max(0, num(entry?.receive));
-    let countedRaw = entry?.counted;
-    const countedIsBlank = countedRaw === '' || countedRaw === null || countedRaw === undefined;
-    const counted = countedIsBlank ? prevStock + receive : Math.max(0, num(countedRaw));
+    const prevStp = getPrevSideStock(iso, item, 'stp');
+    const prevPtr = getPrevSideStock(iso, item, 'ptr');
+    const prevStock = prevStp + prevPtr;
+    const receiveSplit = splitReceive(item, entry, iso, stpLoads, ptrLoads);
+    const receive = receiveSplit.receive;
+    const stpReceive = receiveSplit.stpReceive;
+    const ptrReceive = receiveSplit.ptrReceive;
+    const countedRaw = entry?.counted;
+    const countedIsBlank = isBlank(countedRaw);
+    const counted = countedIsBlank ? prevStock + receive : clamp(countedRaw);
     const available = prevStock + receive;
     const actualUse = Math.max(0, available - counted);
     const adjustment = counted > available ? counted - available : 0;
@@ -436,9 +460,20 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
         ptrUse = actualUse;
       }
     }
+    let stpRemain = prevStp + stpReceive - stpUse;
+    let ptrRemain = prevPtr + ptrReceive - ptrUse;
+    // ปรับเศษ/ส่วนต่างให้ยอดรวมคงเหลือของ STP+PTR เท่ากับยอดที่นับจริงวันนี้เสมอ
+    let drift = counted - (stpRemain + ptrRemain);
+    if(Math.abs(drift) > 0.0001){
+      if(expectedPtr >= expectedStp) ptrRemain += drift; else stpRemain += drift;
+    }
+    if(stpRemain < 0){ ptrRemain += stpRemain; stpRemain = 0; }
+    if(ptrRemain < 0){ stpRemain += ptrRemain; ptrRemain = 0; }
+    stpRemain = Math.max(0, stpRemain);
+    ptrRemain = Math.max(0, ptrRemain);
     const low = counted <= num(item.min);
     const near = counted > num(item.min) && counted <= num(item.min)*1.25;
-    return {prevStock, receive, counted, available, actualUse, adjustment, expectedStp, expectedPtr, stpUse, ptrUse, remain:counted, low, near};
+    return {prevStock, prevStp, prevPtr, receive, stpReceive, ptrReceive, counted, available, actualUse, adjustment, expectedStp, expectedPtr, stpUse, ptrUse, remain:counted, stpRemain, ptrRemain, low, near};
   }
 
   function readEntryForm(){
@@ -448,10 +483,40 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     const items = {};
     state.items.forEach(item => {
       const receiveEl = $(`#receive_${item.id}`);
+      const stpReceiveEl = $(`#stpReceive_${item.id}`);
+      const ptrReceiveEl = $(`#ptrReceive_${item.id}`);
       const countedEl = $(`#counted_${item.id}`);
-      items[item.id] = { receive: receiveEl?.value ?? 0, counted: countedEl?.value ?? '' };
+      items[item.id] = {
+        receive: receiveEl?.value ?? '',
+        stpReceive: stpReceiveEl?.value ?? '',
+        ptrReceive: ptrReceiveEl?.value ?? '',
+        counted: countedEl?.value ?? ''
+      };
     });
     return {date:iso, stpLoads, ptrLoads, note:$('#dailyNote').value.trim(), items};
+  }
+
+  function bindCommitInputs(scope=document){
+    scope.querySelectorAll('input[type="number"], input[type="date"]').forEach(input => {
+      input.addEventListener('keydown', e => {
+        if(e.key === 'Enter'){
+          e.preventDefault();
+          input.blur();
+          refreshAfterTyping();
+        }
+      });
+    });
+  }
+  let refreshTimer = null;
+  function refreshAfterTyping(){
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(() => {
+      const list = $('#entryList');
+      const pos = list ? list.scrollTop : 0;
+      renderEntryList();
+      if(list) $('#entryList').scrollTop = pos;
+      renderAll();
+    }, 80);
   }
 
   function renderEntryList(){
@@ -460,37 +525,27 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     const ptrLoads = Math.max(0, Math.round(num($('#ptrLoads').value)));
     const currentEntry = readEntryForm();
     const html = state.items.map(item => {
-      const entry = currentEntry.items[item.id] || {receive:0,counted:''};
+      const entry = currentEntry.items[item.id] || {receive:'',stpReceive:'',ptrReceive:'',counted:''};
       const c = computeItem(item, entry, iso, stpLoads, ptrLoads);
       const status = c.low ? `<span class="status-low">ต่ำกว่า Min</span>` : c.near ? `<span class="status-mid">ใกล้ Min</span>` : `<span class="status-good">พอใช้</span>`;
       return `<div class="entry-item">
         <h3><span>${esc(item.name)}</span><span class="tag">${esc(item.unit)}</span></h3>
-        <div class="form-row">
-          <label><span>รับเข้า</span><input type="number" min="0" step="1" id="receive_${item.id}" value="${esc(entry.receive ?? 0)}"></label>
-          <label><span>นับได้วันนี้ / คงเหลือ</span><input type="number" min="0" step="1" id="counted_${item.id}" value="${esc(entry.counted ?? '')}" placeholder="ถ้าเว้นว่าง = ไม่เบิก"></label>
+        <div class="form-row four">
+          <label><span>รับเข้ารวม</span><input type="number" min="0" step="1" id="receive_${item.id}" value="${esc(entry.receive ?? '')}" placeholder="รวม"></label>
+          <label><span>รับเข้า ${esc(state.settings.stpName)}</span><input type="number" min="0" step="1" id="stpReceive_${item.id}" value="${esc(entry.stpReceive ?? '')}" placeholder="ว่าง=ออโต้"></label>
+          <label><span>รับเข้า ${esc(state.settings.ptrName)}</span><input type="number" min="0" step="1" id="ptrReceive_${item.id}" value="${esc(entry.ptrReceive ?? '')}" placeholder="ว่าง=ออโต้"></label>
+          <label><span>นับได้รวมวันนี้</span><input type="number" min="0" step="1" id="counted_${item.id}" value="${esc(entry.counted ?? '')}" placeholder="ว่าง=ไม่เบิก"></label>
         </div>
         <div class="calc-line">
-          <div>เมื่อวาน: <b>${fmt(c.prevStock)}</b></div><div>พร้อมใช้: <b>${fmt(c.available)}</b></div>
-          <div>เบิกใช้รวม: <b>${fmt(c.actualUse)}</b></div><div>แบ่ง ${esc(state.settings.stpName)}: <b>${fmt(c.stpUse)}</b> / ${esc(state.settings.ptrName)}: <b>${fmt(c.ptrUse)}</b></div>
-          <div>Min: <b>${fmt(item.min)}</b></div><div>สถานะ: ${status}</div>
+          <div>เมื่อวานรวม: <b>${fmt(c.prevStock)}</b></div><div>พร้อมใช้รวม: <b>${fmt(c.available)}</b></div>
+          <div>รับเข้าแบ่ง: <b>${esc(state.settings.stpName)} ${fmt(c.stpReceive)}</b> / <b>${esc(state.settings.ptrName)} ${fmt(c.ptrReceive)}</b></div><div>เบิกใช้รวม: <b>${fmt(c.actualUse)}</b></div>
+          <div>เบิก ${esc(state.settings.stpName)}: <b>${fmt(c.stpUse)}</b> → เหลือ <b>${fmt(c.stpRemain)}</b></div><div>เบิก ${esc(state.settings.ptrName)}: <b>${fmt(c.ptrUse)}</b> → เหลือ <b>${fmt(c.ptrRemain)}</b></div>
+          <div>Min รวม: <b>${fmt(item.min)}</b></div><div>สถานะ: ${status}</div>
         </div>
       </div>`;
     }).join('');
     $('#entryList').innerHTML = html;
-    state.items.forEach(item => {
-      $(`#receive_${item.id}`).addEventListener('input', renderPreviewOnly);
-      $(`#counted_${item.id}`).addEventListener('input', renderPreviewOnly);
-    });
-  }
-
-  let previewTimer = null;
-  function renderPreviewOnly(){
-    clearTimeout(previewTimer);
-    previewTimer = setTimeout(() => {
-      const pos = $('#entryList').scrollTop;
-      renderEntryList();
-      $('#entryList').scrollTop = pos;
-    }, 120);
+    bindCommitInputs($('#entryList'));
   }
 
   function applyRecordToForm(record){
@@ -502,9 +557,11 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     state.items.forEach(item => {
       const rec = record.items?.[item.id];
       if(rec){
-        const r = $(`#receive_${item.id}`), c = $(`#counted_${item.id}`);
-        if(r) r.value = rec.receive ?? 0;
-        if(c) c.value = rec.counted ?? rec.remain ?? '';
+        const set = (id, val) => { const el = $(`#${id}_${item.id}`); if(el) el.value = val ?? ''; };
+        set('receive', rec.receive ?? 0);
+        set('stpReceive', rec.stpReceive ?? '');
+        set('ptrReceive', rec.ptrReceive ?? '');
+        set('counted', rec.counted ?? rec.remain ?? '');
       }
     });
     renderEntryList();
@@ -534,21 +591,29 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
   }
   function latestComputedForDate(date, item){
     const rec = state.records[date];
-    if(rec?.items?.[item.id]) return rec.items[item.id];
-    const prevStock = getPrevStock(date, item);
-    return {prevStock, receive:'', counted:'', available:prevStock, actualUse:'', stpUse:'', ptrUse:'', remain:prevStock, low: prevStock <= item.min, near: prevStock > item.min && prevStock <= item.min*1.25};
+    if(rec?.items?.[item.id]){
+      const saved = rec.items[item.id];
+      if(saved.stpRemain === undefined || saved.ptrRemain === undefined){
+        return computeItem(item, saved, date, rec.stpLoads || 0, rec.ptrLoads || 0);
+      }
+      return saved;
+    }
+    const prevStp = getPrevSideStock(date, item, 'stp');
+    const prevPtr = getPrevSideStock(date, item, 'ptr');
+    const prevStock = prevStp + prevPtr;
+    return {prevStock, prevStp, prevPtr, receive:'', stpReceive:'', ptrReceive:'', counted:'', available:prevStock, actualUse:'', stpUse:'', ptrUse:'', remain:prevStock, stpRemain:prevStp, ptrRemain:prevPtr, low: prevStock <= item.min, near: prevStock > item.min && prevStock <= item.min*1.25};
   }
 
   function renderCombinedTable(targetId='combinedTable'){
     const records = monthRecords();
     let h1 = `<tr><th class="date-col" rowspan="3">Date</th><th class="qty-col" rowspan="3">จำนวน<br>ตู้ STP</th><th class="qty-col" rowspan="3">จำนวน<br>ตู้ PTR</th>`;
-    state.items.forEach(item => h1 += `<th class="item-head" colspan="5">${esc(item.name)}</th>`);
+    state.items.forEach(item => h1 += `<th class="item-head" colspan="7">${esc(item.name)}</th>`);
     h1 += `</tr>`;
     let h2 = `<tr>`;
-    state.items.forEach(item => h2 += `<th class="sub-head" colspan="5">${esc(item.unit)}</th>`);
+    state.items.forEach(item => h2 += `<th class="sub-head" colspan="7">${esc(item.unit)}</th>`);
     h2 += `</tr>`;
     let h3 = `<tr>`;
-    state.items.forEach(item => h3 += `<th>รับเข้า</th><th>เบิกใช้รวม</th><th>${esc(state.settings.stpName)}</th><th>${esc(state.settings.ptrName)}</th><th class="remain-head">คงเหลือ</th>`);
+    state.items.forEach(item => h3 += `<th>รับเข้า</th><th>เบิกใช้รวม</th><th>${esc(state.settings.stpName)} ใช้</th><th>${esc(state.settings.ptrName)} ใช้</th><th class="remain-head">รวมเหลือ</th><th>${esc(state.settings.stpName)} เหลือ</th><th>${esc(state.settings.ptrName)} เหลือ</th>`);
     h3 += `</tr>`;
     let body = records.map(rec => {
       const saved = !!state.records[rec.date];
@@ -561,6 +626,7 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
         row += `<td>${saved ? fmt(c.stpUse) : ''}</td>`;
         row += `<td>${saved ? fmt(c.ptrUse) : ''}</td>`;
         row += `<td class="remain-cell${lowClass}">${fmt(c.remain)}</td>`;
+        row += `<td>${fmt(c.stpRemain)}</td><td>${fmt(c.ptrRemain)}</td>`;
       });
       row += `</tr>`;
       return row;
@@ -568,11 +634,11 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     const latestDate = Object.keys(state.records).sort().filter(d => d.slice(0,7) === getMonthKey($('#workDate').value || todayISO())).pop();
     let footer = `<tr><td class="bottom-yellow left" colspan="3">ยอดคงเหลือ ณ ปัจจุบัน</td>`;
     state.items.forEach(item => {
-      const c = latestDate ? latestComputedForDate(latestDate, item) : {remain:item.start};
-      footer += `<td class="bottom-green" colspan="5">${fmt(c.remain)}</td>`;
+      const c = latestDate ? latestComputedForDate(latestDate, item) : {remain:itemTotalStart(item), stpRemain:item.stpStart, ptrRemain:item.ptrStart};
+      footer += `<td class="bottom-green" colspan="7">รวม ${fmt(c.remain)} / ${esc(state.settings.stpName)} ${fmt(c.stpRemain)} / ${esc(state.settings.ptrName)} ${fmt(c.ptrRemain)}</td>`;
     });
-    footer += `</tr><tr><td class="bottom-cyan left" colspan="3">ยอดตั้งต้น / เกณฑ์ขั้นต่ำ</td>`;
-    state.items.forEach(item => footer += `<td class="bottom-green" colspan="5">ตั้งต้น ${fmt(item.start)} / Min ${fmt(item.min)}</td>`);
+    footer += `</tr><tr><td class="bottom-cyan left" colspan="3">ยอดตั้งต้น STP / PTR / Min</td>`;
+    state.items.forEach(item => footer += `<td class="bottom-green" colspan="7">${fmt(item.stpStart)} / ${fmt(item.ptrStart)} / Min ${fmt(item.min)}</td>`);
     footer += `</tr>`;
     $(`#${targetId}`).innerHTML = `<thead>${h1}${h2}${h3}</thead><tbody>${body}${footer}</tbody>`;
   }
@@ -580,21 +646,29 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
   function renderSideTable(side, targetId){
     const sideName = side === 'stp' ? state.settings.stpName : state.settings.ptrName;
     const records = monthRecords();
-    let h = `<tr><th class="date-col">Date</th><th class="qty-col">จำนวนตู้ ${esc(sideName)}</th>`;
-    state.items.forEach(item => h += `<th class="item-head">${esc(item.name)}<br><span class="mini">${esc(item.unit)}</span></th>`);
-    h += `<th>หมายเหตุ</th></tr>`;
+    let h1 = `<tr><th class="date-col" rowspan="3">Date</th><th class="qty-col" rowspan="3">จำนวน<br>ตู้ ${esc(sideName)}</th>`;
+    state.items.forEach(item => h1 += `<th class="item-head" colspan="3">${esc(item.name)}</th>`);
+    h1 += `<th rowspan="3">หมายเหตุ</th></tr>`;
+    let h2 = `<tr>`;
+    state.items.forEach(item => h2 += `<th class="sub-head" colspan="3">${esc(item.unit)}</th>`);
+    h2 += `</tr>`;
+    let h3 = `<tr>`;
+    state.items.forEach(() => h3 += `<th>รับเข้า</th><th>เบิกใช้</th><th class="remain-head">คงเหลือ</th>`);
+    h3 += `</tr>`;
     let body = records.map(rec => {
       const saved = !!state.records[rec.date];
       let row = `<tr><td class="date-col left">${dateText(rec.date)}</td><td>${saved ? fmt(side==='stp'?rec.stpLoads:rec.ptrLoads) : ''}</td>`;
       state.items.forEach(item => {
         const c = latestComputedForDate(rec.date, item);
-        const v = side === 'stp' ? c.stpUse : c.ptrUse;
-        row += `<td>${saved ? fmt(v) : ''}</td>`;
+        const receive = side === 'stp' ? c.stpReceive : c.ptrReceive;
+        const use = side === 'stp' ? c.stpUse : c.ptrUse;
+        const remain = side === 'stp' ? c.stpRemain : c.ptrRemain;
+        row += `<td class="${num(receive)>0?'receive-cell':''}">${saved ? fmt(receive) : ''}</td><td>${saved ? fmt(use) : ''}</td><td class="remain-cell">${fmt(remain)}</td>`;
       });
       row += `<td class="left">${saved ? esc(rec.note || '') : ''}</td></tr>`;
       return row;
     }).join('');
-    $(`#${targetId}`).innerHTML = `<thead>${h}</thead><tbody>${body}</tbody>`;
+    $(`#${targetId}`).innerHTML = `<thead>${h1}${h2}${h3}</thead><tbody>${body}</tbody>`;
   }
 
   function renderDashboard(){
@@ -603,16 +677,16 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     const month = records.filter(r => r.date.slice(0,7) === monthKey);
     const latestDate = records.length ? records[records.length-1].date : null;
     let lowCount = 0;
-    let h = `<tr><th>รายการ</th><th>หน่วย</th><th>คงเหลือล่าสุด</th><th>Min</th><th>สถานะ</th><th>ใช้รวมเดือนนี้</th><th>STP</th><th>PTR</th><th>รับเข้าเดือนนี้</th></tr>`;
+    let h = `<tr><th>รายการ</th><th>หน่วย</th><th>รวมเหลือล่าสุด</th><th>${esc(state.settings.stpName)} เหลือ</th><th>${esc(state.settings.ptrName)} เหลือ</th><th>Min</th><th>สถานะ</th><th>ใช้รวมเดือนนี้</th><th>${esc(state.settings.stpName)}</th><th>${esc(state.settings.ptrName)}</th><th>รับเข้าเดือนนี้</th></tr>`;
     let body = state.items.map(item => {
-      const latest = latestDate ? latestComputedForDate(latestDate, item) : {remain:item.start, low:item.start<=item.min, near:item.start>item.min&&item.start<=item.min*1.25};
+      const latest = latestDate ? latestComputedForDate(latestDate, item) : {remain:itemTotalStart(item), stpRemain:item.stpStart, ptrRemain:item.ptrStart, low:itemTotalStart(item)<=item.min, near:itemTotalStart(item)>item.min&&itemTotalStart(item)<=item.min*1.25};
       const useSum = month.reduce((s,r)=>s+num(r.items?.[item.id]?.actualUse),0);
       const stpSum = month.reduce((s,r)=>s+num(r.items?.[item.id]?.stpUse),0);
       const ptrSum = month.reduce((s,r)=>s+num(r.items?.[item.id]?.ptrUse),0);
       const recSum = month.reduce((s,r)=>s+num(r.items?.[item.id]?.receive),0);
       if(latest.low) lowCount++;
       const status = latest.low ? '<span class="status-low">ต้องเติม</span>' : latest.near ? '<span class="status-mid">ใกล้ขั้นต่ำ</span>' : '<span class="status-good">ปกติ</span>';
-      return `<tr><td class="left"><b>${esc(item.name)}</b></td><td>${esc(item.unit)}</td><td class="right ${latest.low?'warn-cell':latest.near?'bottom-yellow':'ok-cell'}">${fmt(latest.remain)}</td><td class="right">${fmt(item.min)}</td><td>${status}</td><td class="right">${fmt(useSum)}</td><td class="right">${fmt(stpSum)}</td><td class="right">${fmt(ptrSum)}</td><td class="right">${fmt(recSum)}</td></tr>`;
+      return `<tr><td class="left"><b>${esc(item.name)}</b></td><td>${esc(item.unit)}</td><td class="right ${latest.low?'warn-cell':latest.near?'bottom-yellow':'ok-cell'}">${fmt(latest.remain)}</td><td class="right">${fmt(latest.stpRemain)}</td><td class="right">${fmt(latest.ptrRemain)}</td><td class="right">${fmt(item.min)}</td><td>${status}</td><td class="right">${fmt(useSum)}</td><td class="right">${fmt(stpSum)}</td><td class="right">${fmt(ptrSum)}</td><td class="right">${fmt(recSum)}</td></tr>`;
     }).join('');
     $('#dashboardTable').innerHTML = `<thead>${h}</thead><tbody>${body}</tbody>`;
     $('#sumItems').textContent = state.items.length;
@@ -624,17 +698,16 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
   function renderLowTable(){
     const records = Object.values(state.records).sort((a,b)=>a.date.localeCompare(b.date));
     const latestDate = records.length ? records[records.length-1].date : null;
-    let h = `<tr><th>รายการ</th><th>คงเหลือล่าสุด</th><th>Min</th><th>แนะนำ</th><th>สถิติ STP/ตู้</th><th>สถิติ PTR/ตู้</th></tr>`;
+    let h = `<tr><th>รายการ</th><th>รวมเหลือล่าสุด</th><th>${esc(state.settings.stpName)} เหลือ</th><th>${esc(state.settings.ptrName)} เหลือ</th><th>Min</th><th>แนะนำ</th><th>สถิติ STP/ตู้</th><th>สถิติ PTR/ตู้</th></tr>`;
     let rows = state.items.map(item => {
-      const c = latestDate ? latestComputedForDate(latestDate, item) : {remain:item.start};
+      const c = latestDate ? latestComputedForDate(latestDate, item) : {remain:itemTotalStart(item), stpRemain:item.stpStart, ptrRemain:item.ptrStart};
       const need = Math.max(0, num(item.min)*2 - num(c.remain));
       const status = num(c.remain) <= num(item.min) ? 'ควรสั่ง/รับเข้าเพิ่ม' : num(c.remain) <= num(item.min)*1.25 ? 'เริ่มเช็คของสำรอง' : 'ยังพอใช้';
       return {item,c,need,status};
     }).sort((a,b)=>(a.c.remain-a.item.min)-(b.c.remain-b.item.min));
-    let body = rows.map(x => `<tr><td class="left"><b>${esc(x.item.name)}</b><br><span class="mini">${esc(x.item.unit)}</span></td><td class="right ${x.c.remain<=x.item.min?'warn-cell':x.c.remain<=x.item.min*1.25?'bottom-yellow':'ok-cell'}">${fmt(x.c.remain)}</td><td class="right">${fmt(x.item.min)}</td><td class="left">${esc(x.status)}${x.need>0?` • เติมประมาณ ${fmt(x.need)}`:''}</td><td class="right">${fmt(x.item.stpRate)}</td><td class="right">${fmt(x.item.ptrRate)}</td></tr>`).join('');
+    let body = rows.map(x => `<tr><td class="left"><b>${esc(x.item.name)}</b><br><span class="mini">${esc(x.item.unit)}</span></td><td class="right ${x.c.remain<=x.item.min?'warn-cell':x.c.remain<=x.item.min*1.25?'bottom-yellow':'ok-cell'}">${fmt(x.c.remain)}</td><td class="right">${fmt(x.c.stpRemain)}</td><td class="right">${fmt(x.c.ptrRemain)}</td><td class="right">${fmt(x.item.min)}</td><td class="left">${esc(x.status)}${x.need>0?` • เติมประมาณ ${fmt(x.need)}`:''}</td><td class="right">${fmt(x.item.stpRate)}</td><td class="right">${fmt(x.item.ptrRate)}</td></tr>`).join('');
     $('#lowTable').innerHTML = `<thead>${h}</thead><tbody>${body}</tbody>`;
   }
-
   function renderAll(){
     renderDashboard();
     renderCombinedTable('combinedTable');
@@ -652,22 +725,24 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     $('#ptrName').value = state.settings.ptrName || 'PTR';
     $('#statEditor').innerHTML = state.items.map(item => `<div class="stat-editor">
       <strong>${esc(item.name)}<br><span class="mini">${esc(item.unit)}</span></strong>
-      <label><span>ยอดตั้งต้น</span><input type="number" step="1" id="start_${item.id}" value="${esc(item.start)}"></label>
-      <label><span>Min</span><input type="number" step="1" id="min_${item.id}" value="${esc(item.min)}"></label>
+      <label><span>ตั้งต้น ${esc(state.settings.stpName)}</span><input type="number" step="1" id="stpStart_${item.id}" value="${esc(item.stpStart)}"></label>
+      <label><span>ตั้งต้น ${esc(state.settings.ptrName)}</span><input type="number" step="1" id="ptrStart_${item.id}" value="${esc(item.ptrStart)}"></label>
+      <label><span>Min รวม</span><input type="number" step="1" id="min_${item.id}" value="${esc(item.min)}"></label>
       <label><span>STP / ตู้</span><input type="number" step="0.01" id="stpRate_${item.id}" value="${esc(item.stpRate)}"></label>
       <label><span>PTR / ตู้</span><input type="number" step="0.01" id="ptrRate_${item.id}" value="${esc(item.ptrRate)}"></label>
     </div>`).join('');
+    bindCommitInputs($('#statEditor'));
   }
-
   function saveSettings(){
     state.settings.stpName = $('#stpName').value.trim() || 'STP';
     state.settings.ptrName = $('#ptrName').value.trim() || 'PTR';
-    state.items = state.items.map(item => Object.assign({}, item, {
-      start: num($(`#start_${item.id}`).value),
+    state.items = state.items.map(item => normalizeItem(Object.assign({}, item, {
+      stpStart: num($(`#stpStart_${item.id}`).value),
+      ptrStart: num($(`#ptrStart_${item.id}`).value),
       min: num($(`#min_${item.id}`).value),
       stpRate: num($(`#stpRate_${item.id}`).value),
       ptrRate: num($(`#ptrRate_${item.id}`).value),
-    }));
+    })));
     saveState();
     renderEntryList();
     renderAll();
@@ -676,61 +751,125 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
 
   function clearEntry(){
     $('#stpLoads').value = 0; $('#ptrLoads').value = 0; $('#dailyNote').value = '';
-    renderEntryList();
+    renderEntryList(); renderAll();
   }
   function fillYesterday(){
     const iso = $('#workDate').value || todayISO();
     state.items.forEach(item => {
-      const c = $(`#counted_${item.id}`);
-      if(c) c.value = getPrevStock(iso, item);
-      const r = $(`#receive_${item.id}`);
-      if(r) r.value = 0;
+      const c = $(`#counted_${item.id}`); if(c) c.value = getPrevStock(iso, item);
+      const r = $(`#receive_${item.id}`); if(r) r.value = 0;
+      const sr = $(`#stpReceive_${item.id}`); if(sr) sr.value = 0;
+      const pr = $(`#ptrReceive_${item.id}`); if(pr) pr.value = 0;
     });
-    renderEntryList();
+    renderEntryList(); renderAll();
   }
 
-  function sheetXml(name, rows){
-    const cells = rows.map(row => '<Row>' + row.map(cell => {
-      const isNum = typeof cell === 'number' && Number.isFinite(cell);
-      return `<Cell><Data ss:Type="${isNum?'Number':'String'}">${esc(isNum ? cell : (cell ?? ''))}</Data></Cell>`;
-    }).join('') + '</Row>').join('\n');
-    return `<Worksheet ss:Name="${esc(name).slice(0,31)}"><Table>${cells}</Table></Worksheet>`;
+  // ---------- Excel XML export: รูปแบบเหมือนตารางตัวอย่าง ----------
+  function xmlCell(value='', style='Default', type=null, mergeAcross=0){
+    const isNumber = type ? type === 'Number' : (typeof value === 'number' && Number.isFinite(value));
+    const isEmpty = value === '' || value === null || value === undefined;
+    const merge = mergeAcross ? ` ss:MergeAcross="${mergeAcross}"` : '';
+    if(isEmpty) return `<Cell ss:StyleID="${style}"${merge}/>`;
+    return `<Cell ss:StyleID="${style}"${merge}><Data ss:Type="${isNumber?'Number':'String'}">${esc(isNumber ? value : String(value))}</Data></Cell>`;
   }
-  function exportExcel(){
-    const monthKey = getMonthKey($('#workDate').value || todayISO());
+  function xmlRow(cells, height=null){
+    const h = height ? ` ss:Height="${height}"` : '';
+    return `<Row${h}>${cells.join('')}</Row>`;
+  }
+  function xmlColumns(){
+    let out = `<Column ss:Width="90"/><Column ss:Width="24"/><Column ss:Width="58"/>`;
+    for(let i=0;i<state.items.length*3;i++) out += `<Column ss:Width="58"/>`;
+    return out;
+  }
+  function excelStyles(){
+    return `<Styles>
+      <Style ss:ID="Default"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders><Font ss:FontName="Tahoma" ss:Size="8"/><Interior/><NumberFormat ss:Format="General"/></Style>
+      <Style ss:ID="NoBorder"><Font ss:FontName="Tahoma" ss:Size="8"/></Style>
+      <Style ss:ID="Title"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:FontName="Tahoma" ss:Size="12" ss:Bold="1" ss:Underline="Single"/></Style>
+      <Style ss:ID="MonthTitle"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:FontName="Tahoma" ss:Size="12" ss:Bold="1"/></Style>
+      <Style ss:ID="LeftHeader"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders><Font ss:FontName="Tahoma" ss:Size="8" ss:Bold="1"/><Interior ss:Color="#E2F0D9" ss:Pattern="Solid"/></Style>
+      <Style ss:ID="ItemHeader"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders><Font ss:FontName="Tahoma" ss:Size="8" ss:Bold="1"/><Interior ss:Color="#DDEBF7" ss:Pattern="Solid"/></Style>
+      <Style ss:ID="Uom"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders><Font ss:FontName="Tahoma" ss:Size="7"/><Interior ss:Color="#F2F2F2" ss:Pattern="Solid"/></Style>
+      <Style ss:ID="SubReceive"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders><Font ss:FontName="Tahoma" ss:Size="8" ss:Bold="1"/><Interior ss:Color="#F2F2F2" ss:Pattern="Solid"/></Style>
+      <Style ss:ID="SubUse"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders><Font ss:FontName="Tahoma" ss:Size="8" ss:Bold="1"/><Interior ss:Color="#D9E1F2" ss:Pattern="Solid"/></Style>
+      <Style ss:ID="SubRemain"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders><Font ss:FontName="Tahoma" ss:Size="8" ss:Bold="1" ss:Color="#C00000"/><Interior ss:Color="#FFE699" ss:Pattern="Solid"/></Style>
+      <Style ss:ID="DateCell"><Alignment ss:Horizontal="Left" ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders><Font ss:FontName="Tahoma" ss:Size="8" ss:Bold="1"/><Interior ss:Color="#FFF2CC" ss:Pattern="Solid"/></Style>
+      <Style ss:ID="Body"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders><Font ss:FontName="Tahoma" ss:Size="8"/></Style>
+      <Style ss:ID="Receive"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders><Font ss:FontName="Tahoma" ss:Size="8"/><Interior ss:Color="#FFFF00" ss:Pattern="Solid"/></Style>
+      <Style ss:ID="Remain"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders><Font ss:FontName="Tahoma" ss:Size="8" ss:Bold="1"/></Style>
+      <Style ss:ID="BottomYellow"><Alignment ss:Horizontal="Left" ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders><Font ss:FontName="Tahoma" ss:Size="8" ss:Bold="1"/><Interior ss:Color="#FFC000" ss:Pattern="Solid"/></Style>
+      <Style ss:ID="BottomBlue"><Alignment ss:Horizontal="Left" ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders><Font ss:FontName="Tahoma" ss:Size="8" ss:Bold="1"/><Interior ss:Color="#00B0F0" ss:Pattern="Solid"/></Style>
+      <Style ss:ID="BottomGreen"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders><Font ss:FontName="Tahoma" ss:Size="8" ss:Bold="1"/><Interior ss:Color="#63F08E" ss:Pattern="Solid"/></Style>
+      <Style ss:ID="LegendOk"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:FontName="Tahoma" ss:Size="8" ss:Bold="1"/><Interior ss:Color="#63F08E" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>
+      <Style ss:ID="LegendWarn"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:FontName="Tahoma" ss:Size="8"/><Interior ss:Color="#F4CCCC" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>
+    </Styles>`;
+  }
+  function sideSheetXml(side){
+    const sideName = side === 'stp' ? state.settings.stpName : state.settings.ptrName;
     const d = parseISO($('#workDate').value || todayISO());
-    const year = $('#yearMode').value === 'be' ? d.getFullYear()+543 : d.getFullYear();
-    const title = `Packaging Material - เดือน ${monthNamesTH[d.getMonth()]} ${year}`;
+    const useBE = $('#yearMode').value === 'be';
+    const year = useBE ? d.getFullYear()+543 : d.getFullYear();
+    const era = useBE ? 'พ.ศ.' : 'ค.ศ.';
+    const monthTitle = `เดือน ${monthNamesTH[d.getMonth()]} ${era} ${year}`;
     const records = monthRecords();
-    const combinedRows = [
-      [title],
-      ['Date','ตู้ STP','ตู้ PTR', ...state.items.flatMap(i => [`${i.name} รับเข้า`, `${i.name} เบิกใช้รวม`, `${i.name} ${state.settings.stpName}`, `${i.name} ${state.settings.ptrName}`, `${i.name} คงเหลือ`])]
-    ];
-    records.forEach(rec => {
-      const saved = !!state.records[rec.date];
-      combinedRows.push([dateText(rec.date), saved?num(rec.stpLoads):'', saved?num(rec.ptrLoads):'', ...state.items.flatMap(item => {
-        const c = latestComputedForDate(rec.date, item);
-        return saved ? [num(c.receive), num(c.actualUse), num(c.stpUse), num(c.ptrUse), num(c.remain)] : ['','','','',num(c.remain)];
-      })]);
-    });
-    const stpRows = [[`${state.settings.stpName} Usage - ${title}`], ['Date',`จำนวนตู้ ${state.settings.stpName}`,...state.items.map(i=>i.name),'หมายเหตุ']];
-    const ptrRows = [[`${state.settings.ptrName} Usage - ${title}`], ['Date',`จำนวนตู้ ${state.settings.ptrName}`,...state.items.map(i=>i.name),'หมายเหตุ']];
-    records.forEach(rec => {
-      const saved = !!state.records[rec.date];
-      stpRows.push([dateText(rec.date), saved?num(rec.stpLoads):'', ...state.items.map(item=> saved ? num(latestComputedForDate(rec.date,item).stpUse) : ''), saved ? rec.note || '' : '']);
-      ptrRows.push([dateText(rec.date), saved?num(rec.ptrLoads):'', ...state.items.map(item=> saved ? num(latestComputedForDate(rec.date,item).ptrUse) : ''), saved ? rec.note || '' : '']);
-    });
-    const summaryRows = [['รายการ','หน่วย','ยอดตั้งต้น','Min','STP/ตู้','PTR/ตู้','คงเหลือล่าสุด']];
-    const latestDate = Object.keys(state.records).sort().pop();
+    const rows = [];
+    rows.push(xmlRow([xmlCell('Packaging Metetial - สำหรับโหลดงานขาออก ', 'Title', 'String', 5), xmlCell(monthTitle, 'MonthTitle', 'String', 29)], 20));
+    rows.push(xmlRow([xmlCell('Packaging Name:', 'ItemHeader', 'String', 2), ...state.items.map(item => xmlCell(item.name, 'ItemHeader', 'String', 2))], 22));
+    rows.push(xmlRow([xmlCell(' (หน่วย) UOM:', 'Uom', 'String', 2), ...state.items.map(item => xmlCell(item.unit, 'Uom', 'String', 2))], 18));
+    const h4 = [xmlCell('Date', 'LeftHeader', 'String', 1), xmlCell('จำนวนตู้', 'LeftHeader')];
     state.items.forEach(item => {
-      const c = latestDate ? latestComputedForDate(latestDate,item) : {remain:item.start};
-      summaryRows.push([item.name,item.unit,num(item.start),num(item.min),num(item.stpRate),num(item.ptrRate),num(c.remain)]);
+      const remainText = item.id === 'cable_tie' ? 'คงเหลือ/เส้น' : item.id === 'cover_bag' ? 'คงเหลือ/ถุง' : 'คงเหลือ';
+      h4.push(xmlCell('รับเข้า', 'SubReceive'), xmlCell('เบิกใช้', 'SubUse'), xmlCell(remainText, 'SubRemain'));
     });
+    rows.push(xmlRow(h4, 20));
+    const h5 = [xmlCell('ยอดตั้งต้นคงเหลือ', 'LeftHeader', 'String', 2)];
+    state.items.forEach(item => {
+      const start = side === 'stp' ? num(item.stpStart) : num(item.ptrStart);
+      h5.push(xmlCell('', 'Body'), xmlCell('', 'Body'), xmlCell(start, 'SubRemain'));
+    });
+    rows.push(xmlRow(h5, 18));
+    records.forEach(rec => {
+      const saved = !!state.records[rec.date];
+      const data = [xmlCell(dateText(rec.date), 'DateCell', 'String', 1), xmlCell(saved ? (side==='stp'?num(rec.stpLoads):num(rec.ptrLoads)) : '', 'Body')];
+      state.items.forEach(item => {
+        const c = latestComputedForDate(rec.date, item);
+        const receive = side === 'stp' ? c.stpReceive : c.ptrReceive;
+        const use = side === 'stp' ? c.stpUse : c.ptrUse;
+        const remain = side === 'stp' ? c.stpRemain : c.ptrRemain;
+        data.push(xmlCell(saved ? num(receive) : '', num(receive)>0 && saved ? 'Receive' : 'Body'), xmlCell(saved ? num(use) : '', 'Body'), xmlCell(num(remain), 'Remain'));
+      });
+      rows.push(xmlRow(data, 17));
+    });
+    const latestDate = Object.keys(state.records).sort().filter(x => x.slice(0,7) === getMonthKey($('#workDate').value || todayISO())).pop();
+    const current = [xmlCell('ยอดคงเหลือ ณ ปัจจุบัน', 'BottomYellow', 'String', 2)];
+    state.items.forEach(item => {
+      const c = latestDate ? latestComputedForDate(latestDate, item) : {stpRemain:item.stpStart, ptrRemain:item.ptrStart};
+      current.push(xmlCell(side === 'stp' ? num(c.stpRemain) : num(c.ptrRemain), 'BottomGreen', 'Number', 2));
+    });
+    rows.push(xmlRow(current, 18));
+    const minRow = [xmlCell('ยอดที่ต้องเติมจากจุดการใช้งาน', 'BottomBlue', 'String', 2)];
+    state.items.forEach(item => minRow.push(xmlCell(num(item.min), 'Body', 'Number', 2)));
+    rows.push(xmlRow(minRow, 18));
+    rows.push(xmlRow([xmlCell('', 'NoBorder')], 12));
+    rows.push(xmlRow([xmlCell('ความหมายของสี', 'NoBorder', 'String', 2)], 18));
+    rows.push(xmlRow([xmlCell('ปกติ', 'LegendOk', 'String', 1), xmlCell('ต้องสั่งเติมเพิ่ม', 'LegendWarn', 'String', 1)], 18));
+    const sheetName = `สำหรับโหลดออก ${sideName}`.slice(0,31);
+    return `<Worksheet ss:Name="${esc(sheetName)}"><Table>${xmlColumns()}${rows.join('\n')}</Table><WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><PageSetup><Layout x:Orientation="Landscape"/><PageMargins x:Bottom="0.3" x:Left="0.2" x:Right="0.2" x:Top="0.3"/></PageSetup><FitToPage/><Print><FitWidth>1</FitWidth><FitHeight>1</FitHeight></Print><FreezePanes/><FrozenNoSplit/><SplitHorizontal>5</SplitHorizontal><TopRowBottomPane>5</TopRowBottomPane><ActivePane>2</ActivePane></WorksheetOptions></Worksheet>`;
+  }
+  function exportExcel(which='both'){
+    const sheets = [];
+    if(which === 'both' || which === 'stp') sheets.push(sideSheetXml('stp'));
+    if(which === 'both' || which === 'ptr') sheets.push(sideSheetXml('ptr'));
+    const d = parseISO($('#workDate').value || todayISO());
+    const monthKey = getMonthKey($('#workDate').value || todayISO());
+    const suffix = which === 'both' ? 'STP_PTR' : which.toUpperCase();
     const xml = `<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?>
 <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:html="http://www.w3.org/TR/REC-html40">
-${sheetXml('ตารางรวม', combinedRows)}${sheetXml(state.settings.stpName, stpRows)}${sheetXml(state.settings.ptrName, ptrRows)}${sheetXml('ตั้งค่าและคงเหลือ', summaryRows)}
+<DocumentProperties xmlns="urn:schemas-microsoft-com:office:office"><Author>KNS Stock Web</Author><Created>${new Date().toISOString()}</Created></DocumentProperties>
+${excelStyles()}
+${sheets.join('\n')}
 </Workbook>`;
-    downloadBlob(xml, `Packaging_Material_${monthKey}.xls`, 'application/vnd.ms-excel;charset=utf-8');
+    downloadBlob(xml, `Packaging_Matetial_${monthKey}_${suffix}.xls`, 'application/vnd.ms-excel;charset=utf-8');
   }
   function downloadBlob(content, filename, type){
     const blob = new Blob([content], {type});
@@ -739,18 +878,14 @@ ${sheetXml('ตารางรวม', combinedRows)}${sheetXml(state.settings.s
     a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),1000);
   }
-  function backupJSON(){
-    downloadBlob(JSON.stringify(state,null,2), `Packaging_Material_backup_${todayISO()}.json`, 'application/json;charset=utf-8');
-  }
+  function backupJSON(){ downloadBlob(JSON.stringify(state,null,2), `Packaging_Material_backup_${todayISO()}.json`, 'application/json;charset=utf-8'); }
   function restoreJSON(file){
     const reader = new FileReader();
     reader.onload = () => {
       try{
         const imported = JSON.parse(reader.result);
         if(!imported.items || !imported.records) throw new Error('รูปแบบไฟล์ไม่ถูกต้อง');
-        state = imported;
-        state.items = mergeItems(state.items);
-        state.settings = Object.assign({stpName:'STP', ptrName:'PTR'}, state.settings || {});
+        state = normalizeState(imported);
         saveState();
         renderEntryList(); renderAll();
         alert('นำเข้าข้อมูลแล้ว ✅');
@@ -763,7 +898,9 @@ ${sheetXml('ตารางรวม', combinedRows)}${sheetXml(state.settings.s
     $('#workDate').value = todayISO();
     $('#saveBtn').addEventListener('click', saveToday);
     $('#syncNowBtn').addEventListener('click', () => saveCloudState(true));
-    $('#exportXlsBtn').addEventListener('click', exportExcel);
+    $('#exportXlsBtn').addEventListener('click', () => exportExcel('both'));
+    $('#exportStpBtn').addEventListener('click', () => exportExcel('stp'));
+    $('#exportPtrBtn').addEventListener('click', () => exportExcel('ptr'));
     $('#printBtn').addEventListener('click', () => window.print());
     $('#backupBtn').addEventListener('click', backupJSON);
     $('#restoreInput').addEventListener('change', e => { if(e.target.files[0]) restoreJSON(e.target.files[0]); e.target.value=''; });
@@ -773,8 +910,8 @@ ${sheetXml('ตารางรวม', combinedRows)}${sheetXml(state.settings.s
     });
     $('#fillYesterdayBtn').addEventListener('click', fillYesterday);
     $('#clearEntryBtn').addEventListener('click', clearEntry);
-    $('#stpLoads').addEventListener('input', renderPreviewOnly);
-    $('#ptrLoads').addEventListener('input', renderPreviewOnly);
+    $('#stpLoads').addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); refreshAfterTyping(); }});
+    $('#ptrLoads').addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); refreshAfterTyping(); }});
     $('#workDate').addEventListener('change', () => {
       const rec = getRecord($('#workDate').value);
       if(rec) applyRecordToForm(rec); else { $('#dailyNote').value=''; renderEntryList(); }
@@ -799,6 +936,7 @@ ${sheetXml('ตารางรวม', combinedRows)}${sheetXml(state.settings.s
         renderEntryList(); renderAll();
       }
     });
+    bindCommitInputs(document);
   }
 
   bindEvents();

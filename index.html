@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Packaging Material Stock - STP / PTR</title>
+  <style>
+    :root{
+      --bg:#f5f8fb;
+      --panel:#ffffff;
+      --line:#cfd8e3;
+      --text:#172033;
+      --muted:#667085;
+      --blue:#d8e8f7;
+      --green:#dff3d9;
+      --yellow:#ffe79a;
+      --orange:#ffb703;
+      --cyan:#22b8cf;
+      --danger:#dc2626;
+      --ok:#16a34a;
+      --shadow:0 12px 30px rgba(15, 23, 42, .08);
+      --radius:14px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      background:linear-gradient(180deg,#eef6ff 0%, var(--bg) 42%, #f9fafb 100%);
+      color:var(--text);
+    }
+    header{
+      position:sticky;
+      top:0;
+      z-index:10;
+      padding:14px 18px;
+      background:rgba(255,255,255,.9);
+      backdrop-filter: blur(10px);
+      border-bottom:1px solid var(--line);
+      display:flex;
+      gap:14px;
+      align-items:center;
+      justify-content:space-between;
+      flex-wrap:wrap;
+    }
+    .title h1{font-size:22px;margin:0;font-weight:800;letter-spacing:.1px}
+    .title p{margin:2px 0 0;color:var(--muted);font-size:13px}
+    .actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    button,.btn,label.file-btn{
+      border:0;
+      border-radius:11px;
+      padding:9px 12px;
+      font-weight:700;
+      cursor:pointer;
+      color:#102033;
+      background:#e8eef6;
+      box-shadow: inset 0 -1px 0 rgba(0,0,0,.08);
+      user-select:none;
+    }
+    button:hover,.btn:hover,label.file-btn:hover{filter:brightness(.98);transform:translateY(-1px)}
+    .primary{background:#2563eb;color:white}
+    .success{background:#16a34a;color:white}
+    .warning{background:#f59e0b;color:#111827}
+    .danger{background:#ef4444;color:white}
+    .ghost{background:#f1f5f9;color:#334155}
+    .container{max-width:1600px;margin:18px auto;padding:0 16px 40px}
+    .grid{display:grid;grid-template-columns:390px minmax(0,1fr);gap:16px;align-items:start}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+    .card h2{font-size:16px;margin:0;padding:14px 16px;background:#f8fafc;border-bottom:1px solid var(--line)}
+    .card .body{padding:14px 16px}
+    .form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+    .form-row.one{grid-template-columns:1fr}
+    label span{display:block;color:#475569;font-size:12px;font-weight:700;margin-bottom:5px}
+    input,select,textarea{
+      width:100%;
+      border:1px solid #cbd5e1;
+      border-radius:10px;
+      background:white;
+      color:var(--text);
+      padding:9px 10px;
+      font:inherit;
+      outline:none;
+    }
+    input:focus,select:focus,textarea:focus{border-color:#60a5fa;box-shadow:0 0 0 3px rgba(96,165,250,.20)}
+    input[type="number"]{text-align:right}
+    textarea{min-height:70px;resize:vertical}
+    .hint{font-size:12px;color:var(--muted);line-height:1.45;margin:8px 0 0}
+    .mini{font-size:12px;color:var(--muted)}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap;padding:12px 12px 0}
+    .tab{background:#edf2f7;border:1px solid #d8e0ea;border-bottom-color:#d8e0ea}
+    .tab.active{background:#0f172a;color:white}
+    .section{display:none;padding:14px}
+    .section.active{display:block}
+    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px;background:white;max-height:72vh}
+    table{border-collapse:collapse;width:max-content;min-width:100%;font-size:12px}
+    th,td{border:1px solid #9ca3af;padding:5px 7px;white-space:nowrap;text-align:center;vertical-align:middle}
+    th{background:#e8f0f8;font-weight:800;position:sticky;top:0;z-index:1}
+    thead tr:nth-child(2) th{top:29px}
+    thead tr:nth-child(3) th{top:58px}
+    .left{text-align:left}.right{text-align:right}.center{text-align:center}
+    .date-col{background:#fff2cc;font-weight:700;position:sticky;left:0;z-index:2}
+    thead .date-col{z-index:4}
+    .qty-col{background:#e2f0d9}
+    .item-head{background:#ddebf7;font-weight:900}
+    .sub-head{background:#f2f2f2;color:#0f172a}
+    .remain-head{background:#ffe699;color:#c00000}
+    .receive-cell{background:#fff200}
+    .use-cell{background:#f8fafc}
+    .remain-cell{background:#fffef6;font-weight:700}
+    .warn-cell{background:#fee2e2;color:#991b1b;font-weight:800}
+    .ok-cell{background:#dcfce7;color:#166534;font-weight:800}
+    .bottom-yellow{background:#ffc000;font-weight:900}.bottom-cyan{background:#00b0f0;color:#001b2e;font-weight:900}.bottom-green{background:#5cff90;font-weight:900}
+    .entry-list{display:flex;flex-direction:column;gap:10px;max-height:58vh;overflow:auto;padding-right:4px}
+    .entry-item{border:1px solid #d9e2ec;border-radius:12px;padding:10px;background:#fbfdff}
+    .entry-item h3{font-size:13px;margin:0 0 8px;display:flex;justify-content:space-between;gap:8px;align-items:center}
+    .tag{font-size:11px;background:#e2e8f0;color:#334155;border-radius:999px;padding:2px 7px;font-weight:800}
+    .calc-line{font-size:12px;color:#475569;display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+    .calc-line b{color:#0f172a}
+    .status-low{color:#b91c1c;font-weight:800}.status-good{color:#15803d;font-weight:800}.status-mid{color:#b45309;font-weight:800}
+    .stat-editor{display:grid;grid-template-columns:1.35fr .7fr .7fr .7fr .7fr;gap:8px;align-items:end;margin-bottom:8px;border-bottom:1px dashed #d8e0ea;padding-bottom:8px}
+    .stat-editor strong{font-size:12px}.stat-editor label span{font-size:11px}
+    .summary-cards{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:10px;margin-bottom:12px}
+    .summary-card{border:1px solid #dbe3ee;background:#fff;border-radius:12px;padding:12px}
+    .summary-card .num{font-size:22px;font-weight:900}.summary-card .cap{font-size:12px;color:#64748b;font-weight:700}
+    .drawer{position:fixed;inset:0;background:rgba(15,23,42,.38);display:none;align-items:center;justify-content:center;z-index:99;padding:18px}
+    .drawer.open{display:flex}.modal{width:min(980px,100%);max-height:90vh;overflow:auto;background:white;border-radius:18px;border:1px solid #dbe3ee;box-shadow:0 30px 80px rgba(0,0,0,.24)}
+    .modal header{position:sticky;top:0;background:white}.modal .content{padding:16px}
+    .hide{display:none!important}
+    .pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 9px;font-size:12px;font-weight:800;background:#e0f2fe;color:#075985}
+    .firebase-pill{background:#ecfeff;color:#155e75;border:1px solid #a5f3fc;padding:7px 10px}
+    .small-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+    .print-only{display:none}
+    @media (max-width: 1080px){.grid{grid-template-columns:1fr}.summary-cards{grid-template-columns:repeat(2,1fr)}.table-wrap{max-height:62vh}}
+    @media print{
+      body{background:white}.grid,.actions,.tabs,.no-print{display:none!important}.print-only{display:block!important}
+      header{position:static;border:0}.container{max-width:none;margin:0;padding:0}.card{box-shadow:none;border:0}.section{display:block!important;padding:0}.table-wrap{overflow:visible;max-height:none;border:0}table{font-size:9px}th,td{padding:3px}.date-col{position:static}th{position:static}
+      @page{size:landscape;margin:7mm}
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div class="title">
+    <h1>Packaging Material Stock — STP / PTR</h1>
+    <p>นับสต็อกอุปกรณ์โหลดรายวัน • เทียบยอดเมื่อวาน • แยกเบิกใช้ตามจำนวนตู้ STP / PTR • ส่งออก Excel</p>
+  </div>
+  <div class="actions no-print">
+    <span class="pill firebase-pill" id="firebaseStatus">☁️ Firebase: กำลังเชื่อมต่อ...</span>
+    <button class="primary" id="saveBtn">💾 บันทึกวันนี้</button>
+    <button class="ghost" id="syncNowBtn">🔄 ซิงก์ Firebase</button>
+    <button class="success" id="exportXlsBtn">📗 ส่งออก Excel</button>
+    <button class="ghost" id="printBtn">🖨️ พิมพ์</button>
+    <button class="warning" id="openSettingBtn">⚙️ ตั้งค่าสถิติ</button>
+    <button class="ghost" id="backupBtn">⬇️ สำรอง JSON</button>
+    <label class="file-btn" for="restoreInput">⬆️ นำเข้า JSON</label>
+    <input id="restoreInput" class="hide" type="file" accept="application/json" />
+  </div>
+</header>
+
+<div class="container">
+  <div class="grid no-print">
+    <aside class="card">
+      <h2>📝 ใส่ข้อมูลประจำวัน</h2>
+      <div class="body">
+        <div class="form-row">
+          <label><span>วันที่</span><input type="date" id="workDate"></label>
+          <label><span>รูปแบบปีในรายงาน</span><select id="yearMode"><option value="be">พ.ศ.</option><option value="ce">ค.ศ.</option></select></label>
+        </div>
+        <div class="form-row">
+          <label><span>จำนวนตู้ STP วันนี้</span><input type="number" min="0" step="1" id="stpLoads" value="0"></label>
+          <label><span>จำนวนตู้ PTR วันนี้</span><input type="number" min="0" step="1" id="ptrLoads" value="0"></label>
+        </div>
+        <div class="form-row one">
+          <label><span>หมายเหตุ</span><textarea id="dailyNote" placeholder="เช่น มีรับเข้าเพิ่ม / นับจริงต่างจากยอดระบบ / ตู้พิเศษ..."></textarea></label>
+        </div>
+        <div class="small-actions">
+          <button class="ghost" id="loadExistingBtn">🔎 โหลดข้อมูลวันที่นี้</button>
+          <button class="ghost" id="fillYesterdayBtn">↩️ ใส่ยอดนับวันนี้ = ยอดเมื่อวาน</button>
+          <button class="ghost" id="clearEntryBtn">🧹 ล้างฟอร์ม</button>
+        </div>
+        <p class="hint">วิธีคิด: โปรแกรมจะใช้ <b>ยอดคงเหลือเมื่อวาน + รับเข้า - ยอดนับจริงวันนี้</b> = เบิกใช้จริง แล้วแบ่งให้ STP/PTR ตามสถิติต่อ 1 ตู้ของแต่ละรายการ เพื่อให้ยอดคงเหลือสุดท้ายตรงกับที่นับจริง ✅</p>
+        <hr style="border:0;border-top:1px solid #e2e8f0;margin:12px 0">
+        <div id="entryList" class="entry-list"></div>
+      </div>
+    </aside>
+
+    <main class="card">
+      <div class="tabs">
+        <button class="tab active" data-tab="dashboard">📊 สรุป</button>
+        <button class="tab" data-tab="combined">📋 ตารางรวม</button>
+        <button class="tab" data-tab="stp">🔵 STP</button>
+        <button class="tab" data-tab="ptr">🟢 PTR</button>
+        <button class="tab" data-tab="low">⚠️ ใกล้หมด</button>
+      </div>
+      <section class="section active" id="dashboardSection">
+        <div class="summary-cards">
+          <div class="summary-card"><div class="cap">รายการอุปกรณ์</div><div class="num" id="sumItems">0</div></div>
+          <div class="summary-card"><div class="cap">ตู้ STP เดือนนี้</div><div class="num" id="sumStp">0</div></div>
+          <div class="summary-card"><div class="cap">ตู้ PTR เดือนนี้</div><div class="num" id="sumPtr">0</div></div>
+          <div class="summary-card"><div class="cap">รายการต่ำกว่า Min</div><div class="num" id="sumLow">0</div></div>
+        </div>
+        <div class="table-wrap"><table id="dashboardTable"></table></div>
+      </section>
+      <section class="section" id="combinedSection"><div class="table-wrap"><table id="combinedTable"></table></div></section>
+      <section class="section" id="stpSection"><div class="table-wrap"><table id="stpTable"></table></div></section>
+      <section class="section" id="ptrSection"><div class="table-wrap"><table id="ptrTable"></table></div></section>
+      <section class="section" id="lowSection"><div class="table-wrap"><table id="lowTable"></table></div></section>
+    </main>
+  </div>
+
+  <div class="print-only">
+    <h2 id="printTitle">Packaging Material - สำหรับโหลดงานออก</h2>
+    <div class="table-wrap"><table id="printTable"></table></div>
+  </div>
+</div>
+
+<div class="drawer" id="settingDrawer">
+  <div class="modal">
+    <header>
+      <div class="title"><h1>⚙️ ตั้งค่าสถิติการใช้งาน / ยอดขั้นต่ำ</h1><p>แก้ค่าใช้เฉลี่ยต่อ 1 ตู้ เพื่อให้ระบบแบ่งยอดเบิกใช้ให้ STP และ PTR ได้เหมาะกับหน้างาน</p></div>
+      <div class="actions"><button class="success" id="saveSettingBtn">บันทึกตั้งค่า</button><button class="ghost" id="closeSettingBtn">ปิด</button></div>
+    </header>
+    <div class="content">
+      <div class="hint" style="margin-bottom:12px">ตัวอย่าง: ถ้า STP 3 ตู้ และ PTR 4 ตู้ ระบบจะคำนวณสัดส่วนจากค่า “ใช้/ตู้” ของแต่ละรายการ แล้วกระจายยอดเบิกใช้จริงให้สองฝั่ง โดยคงเหลือตรงกับยอดนับวันนี้</div>
+      <div id="statEditor"></div>
+      <hr style="border:0;border-top:1px solid #e2e8f0;margin:16px 0">
+      <div class="form-row">
+        <label><span>ชื่อสถานที่/หน่วยงานฝั่ง STP</span><input id="stpName" value="STP"></label>
+        <label><span>ชื่อสถานที่/หน่วยงานฝั่ง PTR</span><input id="ptrName" value="PTR"></label>
+      </div>
+      <button class="danger" id="resetAllBtn">🗑️ ลบข้อมูลทั้งหมดในเครื่องนี้</button>
+      <p class="hint">ข้อมูลจะถูกบันทึกในเครื่องนี้และซิงก์ขึ้น Firebase อัตโนมัติ เมื่อ Firestore พร้อมใช้งาน</p>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+(() => {
+  const STORAGE_KEY = 'packagingMaterialStock_STP_PTR_firebase_blank_v2';
+  const monthNamesTH = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+  const defaultItems = [
+    {id:'paper_roll', name:'กระดาษ แบบม้วน', unit:'Rolls / ม้วน', start:0, min:0, stpRate:4.0, ptrRate:3.0},
+    {id:'cable_tie', name:'มัดสายเคเบิล', unit:'Pack / ห่อ', start:0, min:0, stpRate:120, ptrRate:100},
+    {id:'yellow_tape', name:'เทปสีเหลือง', unit:'Rolls', start:0, min:0, stpRate:1.5, ptrRate:1.2},
+    {id:'masking_tape', name:'เทปกาวย่น สีขาว', unit:'Rolls', start:0, min:0, stpRate:1.0, ptrRate:1.0},
+    {id:'black_spray', name:'สีสเปรย์ สีดำ', unit:'Cans / กระป๋อง', start:0, min:0, stpRate:0.7, ptrRate:0.6},
+    {id:'cover_bag', name:'ถุงคลุม', unit:'60 / ถุง', start:0, min:0, stpRate:55, ptrRate:50},
+    {id:'spray_remover', name:'น้ำยาลบสีสเปรย์', unit:'Gallons', start:0, min:0, stpRate:0.10, ptrRate:0.10},
+    {id:'red_nylon_rope', name:'เชือกไนล่อนสีแดง', unit:'Rolls / ม้วน', start:0, min:0, stpRate:0.25, ptrRate:0.25},
+    {id:'raffia_rope', name:'เชือกฟาง', unit:'Rolls / ม้วน', start:0, min:0, stpRate:0.35, ptrRate:0.35},
+    {id:'wrap_film', name:'ฟิล์มแล็ป', unit:'Rolls / ม้วน', start:0, min:0, stpRate:0.10, ptrRate:0.10},
+    {id:'china_plastic', name:'พลาสติกปิดตู้ไปจีน', unit:'Rolls / ม้วน', start:0, min:0, stpRate:0.15, ptrRate:0.15},
+  ];
+  const firebaseConfig = {
+    apiKey: "AIzaSyB5D1UwPd8CzxYiDHFKAMPnhmffDrtKNj0",
+    authDomain: "kns-stock.firebaseapp.com",
+    projectId: "kns-stock",
+    storageBucket: "kns-stock.firebasestorage.app",
+    messagingSenderId: "522520917999",
+    appId: "1:522520917999:web:f1fb1f501e662ec374e81a",
+    measurementId: "G-9S4V8CGN5S"
+  };
+  const FIREBASE_DOC_PATH = ['apps', 'loading-equipment-stock', 'state', 'main'];
+  const $ = sel => document.querySelector(sel);
+  const $$ = sel => [...document.querySelectorAll(sel)];
+  const todayISO = () => new Date(Date.now() - new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
+  const num = v => Number.isFinite(+v) ? +v : 0;
+  const fmt = v => {
+    const n = Number(v || 0);
+    if (Math.abs(n - Math.round(n)) < 0.0001) return String(Math.round(n));
+    return n.toLocaleString('th-TH',{maximumFractionDigits:2});
+  };
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const parseISO = iso => { const [y,m,d] = iso.split('-').map(Number); return new Date(y,m-1,d); };
+  const dateText = iso => {
+    if(!iso) return '';
+    const d = parseISO(iso), mode = $('#yearMode').value;
+    const y = mode === 'be' ? d.getFullYear()+543 : d.getFullYear();
+    return `${d.getDate()} ${monthNamesTH[d.getMonth()]} ${y}`;
+  };
+  const getMonthKey = iso => iso ? iso.slice(0,7) : todayISO().slice(0,7);
+  const addDays = (iso, days) => {
+    const d = parseISO(iso); d.setDate(d.getDate()+days);
+    return new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  };
+
+  function createEmptyState(){
+    return {items: structuredClone(defaultItems), records:{}, settings:{stpName:'STP', ptrName:'PTR'}};
+  }
+  function normalizeState(s){
+    const normalized = s && typeof s === 'object' ? s : createEmptyState();
+    normalized.items = mergeItems(normalized.items || []);
+    normalized.records = normalized.records || {};
+    normalized.settings = Object.assign({stpName:'STP', ptrName:'PTR'}, normalized.settings || {});
+    return normalized;
+  }
+
+  function loadState(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw){
+        const s = JSON.parse(raw);
+        return normalizeState(s);
+      }
+    }catch(e){console.warn(e)}
+    return createEmptyState();
+  }
+  function mergeItems(items){
+    const map = new Map(items.map(x => [x.id, x]));
+    return defaultItems.map(d => Object.assign({}, d, map.get(d.id) || {}));
+  }
+  let state = loadState();
+  let firebaseReady = false;
+  let firebaseDocRef = null;
+  let applyingCloudState = false;
+  let cloudSaveTimer = null;
+
+  function setFirebaseStatus(text){
+    const el = $('#firebaseStatus');
+    if(el) el.textContent = text;
+  }
+  function saveLocalState(){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+  function saveState(){
+    saveLocalState();
+    queueCloudSave();
+  }
+  function stateForCloud(){
+    return JSON.parse(JSON.stringify(state));
+  }
+  function queueCloudSave(){
+    if(!firebaseReady || !firebaseDocRef || applyingCloudState) return;
+    clearTimeout(cloudSaveTimer);
+    cloudSaveTimer = setTimeout(() => saveCloudState(false), 500);
+  }
+  async function saveCloudState(showAlert){
+    if(!firebaseReady || !firebaseDocRef){
+      if(showAlert) alert('Firebase ยังไม่พร้อมใช้งาน');
+      return;
+    }
+    try{
+      setFirebaseStatus('☁️ Firebase: กำลังบันทึก...');
+      await setDoc(firebaseDocRef, {
+        state: stateForCloud(),
+        schema: 'loading-equipment-stock-v2',
+        updatedAt: new Date().toISOString()
+      }, {merge:true});
+      setFirebaseStatus('☁️ Firebase: บันทึกแล้ว ✅');
+      if(showAlert) alert('ซิงก์ Firebase เรียบร้อยแล้ว ✅');
+    }catch(err){
+      console.warn(err);
+      setFirebaseStatus('☁️ Firebase: บันทึกไม่สำเร็จ');
+      if(showAlert) alert('ซิงก์ Firebase ไม่สำเร็จ: ' + err.message);
+    }
+  }
+  function applyCloudState(cloudState){
+    applyingCloudState = true;
+    state = normalizeState(cloudState);
+    saveLocalState();
+    renderEntryList();
+    renderAll();
+    applyingCloudState = false;
+  }
+  async function initFirebaseSync(){
+    try{
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+      firebaseDocRef = doc(db, ...FIREBASE_DOC_PATH);
+      firebaseReady = true;
+      setFirebaseStatus('☁️ Firebase: เชื่อมต่อแล้ว');
+
+      const snap = await getDoc(firebaseDocRef);
+      if(snap.exists() && snap.data()?.state){
+        applyCloudState(snap.data().state);
+        setFirebaseStatus('☁️ Firebase: โหลดข้อมูลแล้ว ✅');
+      }else{
+        await setDoc(firebaseDocRef, {
+          state: stateForCloud(),
+          schema: 'loading-equipment-stock-v2',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }, {merge:true});
+        setFirebaseStatus('☁️ Firebase: เริ่มฐานข้อมูลใหม่ ✅');
+      }
+
+      onSnapshot(firebaseDocRef, snap => {
+        const data = snap.data();
+        if(!data?.state) return;
+        applyCloudState(data.state);
+        setFirebaseStatus('☁️ Firebase: อัปเดตล่าสุด ✅');
+      }, err => {
+        console.warn(err);
+        setFirebaseStatus('☁️ Firebase: อ่านข้อมูลไม่ได้');
+      });
+    }catch(err){
+      console.warn(err);
+      setFirebaseStatus('☁️ Firebase: ออฟไลน์ / ใช้ในเครื่อง');
+    }
+  }
+
+  function previousRecordBefore(iso){
+    const dates = Object.keys(state.records).filter(d => d < iso).sort();
+    return dates.length ? state.records[dates[dates.length-1]] : null;
+  }
+  function getPrevStock(iso, item){
+    const prev = previousRecordBefore(iso);
+    if(prev && prev.items && prev.items[item.id]) return num(prev.items[item.id].remain);
+    return num(item.start);
+  }
+  function getRecord(iso){ return state.records[iso] || null; }
+
+  function computeItem(item, entry, iso, stpLoads, ptrLoads){
+    const prevStock = getPrevStock(iso, item);
+    const receive = Math.max(0, num(entry?.receive));
+    let countedRaw = entry?.counted;
+    const countedIsBlank = countedRaw === '' || countedRaw === null || countedRaw === undefined;
+    const counted = countedIsBlank ? prevStock + receive : Math.max(0, num(countedRaw));
+    const available = prevStock + receive;
+    const actualUse = Math.max(0, available - counted);
+    const adjustment = counted > available ? counted - available : 0;
+    const expectedStp = Math.max(0, stpLoads * num(item.stpRate));
+    const expectedPtr = Math.max(0, ptrLoads * num(item.ptrRate));
+    let stpUse = 0, ptrUse = 0;
+    if(actualUse > 0){
+      const totalExpected = expectedStp + expectedPtr;
+      if(totalExpected > 0){
+        stpUse = Math.round(actualUse * expectedStp / totalExpected);
+        ptrUse = actualUse - stpUse;
+      }else if(stpLoads + ptrLoads > 0){
+        stpUse = Math.round(actualUse * stpLoads / (stpLoads + ptrLoads));
+        ptrUse = actualUse - stpUse;
+      }else{
+        ptrUse = actualUse;
+      }
+    }
+    const low = counted <= num(item.min);
+    const near = counted > num(item.min) && counted <= num(item.min)*1.25;
+    return {prevStock, receive, counted, available, actualUse, adjustment, expectedStp, expectedPtr, stpUse, ptrUse, remain:counted, low, near};
+  }
+
+  function readEntryForm(){
+    const iso = $('#workDate').value || todayISO();
+    const stpLoads = Math.max(0, Math.round(num($('#stpLoads').value)));
+    const ptrLoads = Math.max(0, Math.round(num($('#ptrLoads').value)));
+    const items = {};
+    state.items.forEach(item => {
+      const receiveEl = $(`#receive_${item.id}`);
+      const countedEl = $(`#counted_${item.id}`);
+      items[item.id] = { receive: receiveEl?.value ?? 0, counted: countedEl?.value ?? '' };
+    });
+    return {date:iso, stpLoads, ptrLoads, note:$('#dailyNote').value.trim(), items};
+  }
+
+  function renderEntryList(){
+    const iso = $('#workDate').value || todayISO();
+    const stpLoads = Math.max(0, Math.round(num($('#stpLoads').value)));
+    const ptrLoads = Math.max(0, Math.round(num($('#ptrLoads').value)));
+    const currentEntry = readEntryForm();
+    const html = state.items.map(item => {
+      const entry = currentEntry.items[item.id] || {receive:0,counted:''};
+      const c = computeItem(item, entry, iso, stpLoads, ptrLoads);
+      const status = c.low ? `<span class="status-low">ต่ำกว่า Min</span>` : c.near ? `<span class="status-mid">ใกล้ Min</span>` : `<span class="status-good">พอใช้</span>`;
+      return `<div class="entry-item">
+        <h3><span>${esc(item.name)}</span><span class="tag">${esc(item.unit)}</span></h3>
+        <div class="form-row">
+          <label><span>รับเข้า</span><input type="number" min="0" step="1" id="receive_${item.id}" value="${esc(entry.receive ?? 0)}"></label>
+          <label><span>นับได้วันนี้ / คงเหลือ</span><input type="number" min="0" step="1" id="counted_${item.id}" value="${esc(entry.counted ?? '')}" placeholder="ถ้าเว้นว่าง = ไม่เบิก"></label>
+        </div>
+        <div class="calc-line">
+          <div>เมื่อวาน: <b>${fmt(c.prevStock)}</b></div><div>พร้อมใช้: <b>${fmt(c.available)}</b></div>
+          <div>เบิกใช้รวม: <b>${fmt(c.actualUse)}</b></div><div>แบ่ง ${esc(state.settings.stpName)}: <b>${fmt(c.stpUse)}</b> / ${esc(state.settings.ptrName)}: <b>${fmt(c.ptrUse)}</b></div>
+          <div>Min: <b>${fmt(item.min)}</b></div><div>สถานะ: ${status}</div>
+        </div>
+      </div>`;
+    }).join('');
+    $('#entryList').innerHTML = html;
+    state.items.forEach(item => {
+      $(`#receive_${item.id}`).addEventListener('input', renderPreviewOnly);
+      $(`#counted_${item.id}`).addEventListener('input', renderPreviewOnly);
+    });
+  }
+
+  let previewTimer = null;
+  function renderPreviewOnly(){
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(() => {
+      const pos = $('#entryList').scrollTop;
+      renderEntryList();
+      $('#entryList').scrollTop = pos;
+    }, 120);
+  }
+
+  function applyRecordToForm(record){
+    if(!record) return;
+    $('#stpLoads').value = record.stpLoads || 0;
+    $('#ptrLoads').value = record.ptrLoads || 0;
+    $('#dailyNote').value = record.note || '';
+    renderEntryList();
+    state.items.forEach(item => {
+      const rec = record.items?.[item.id];
+      if(rec){
+        const r = $(`#receive_${item.id}`), c = $(`#counted_${item.id}`);
+        if(r) r.value = rec.receive ?? 0;
+        if(c) c.value = rec.counted ?? rec.remain ?? '';
+      }
+    });
+    renderEntryList();
+  }
+
+  function saveToday(){
+    const entry = readEntryForm();
+    const computed = {};
+    state.items.forEach(item => {
+      const c = computeItem(item, entry.items[item.id], entry.date, entry.stpLoads, entry.ptrLoads);
+      computed[item.id] = Object.assign({}, entry.items[item.id], c);
+    });
+    state.records[entry.date] = {date:entry.date, stpLoads:entry.stpLoads, ptrLoads:entry.ptrLoads, note:entry.note, items:computed, updatedAt:new Date().toISOString()};
+    saveState();
+    renderAll();
+    alert('บันทึกข้อมูลเรียบร้อยแล้ว ✅');
+  }
+
+  function monthDates(monthKey){
+    const [y,m] = monthKey.split('-').map(Number);
+    const last = new Date(y, m, 0).getDate();
+    return Array.from({length:last}, (_,i)=>`${y}-${String(m).padStart(2,'0')}-${String(i+1).padStart(2,'0')}`);
+  }
+  function monthRecords(){
+    const monthKey = getMonthKey($('#workDate').value || todayISO());
+    return monthDates(monthKey).map(date => state.records[date] || {date, stpLoads:'', ptrLoads:'', note:'', items:{}});
+  }
+  function latestComputedForDate(date, item){
+    const rec = state.records[date];
+    if(rec?.items?.[item.id]) return rec.items[item.id];
+    const prevStock = getPrevStock(date, item);
+    return {prevStock, receive:'', counted:'', available:prevStock, actualUse:'', stpUse:'', ptrUse:'', remain:prevStock, low: prevStock <= item.min, near: prevStock > item.min && prevStock <= item.min*1.25};
+  }
+
+  function renderCombinedTable(targetId='combinedTable'){
+    const records = monthRecords();
+    let h1 = `<tr><th class="date-col" rowspan="3">Date</th><th class="qty-col" rowspan="3">จำนวน<br>ตู้ STP</th><th class="qty-col" rowspan="3">จำนวน<br>ตู้ PTR</th>`;
+    state.items.forEach(item => h1 += `<th class="item-head" colspan="5">${esc(item.name)}</th>`);
+    h1 += `</tr>`;
+    let h2 = `<tr>`;
+    state.items.forEach(item => h2 += `<th class="sub-head" colspan="5">${esc(item.unit)}</th>`);
+    h2 += `</tr>`;
+    let h3 = `<tr>`;
+    state.items.forEach(item => h3 += `<th>รับเข้า</th><th>เบิกใช้รวม</th><th>${esc(state.settings.stpName)}</th><th>${esc(state.settings.ptrName)}</th><th class="remain-head">คงเหลือ</th>`);
+    h3 += `</tr>`;
+    let body = records.map(rec => {
+      const saved = !!state.records[rec.date];
+      let row = `<tr><td class="date-col left">${dateText(rec.date)}</td><td>${saved ? fmt(rec.stpLoads) : ''}</td><td>${saved ? fmt(rec.ptrLoads) : ''}</td>`;
+      state.items.forEach(item => {
+        const c = latestComputedForDate(rec.date, item);
+        const lowClass = c.low ? ' warn-cell' : c.near ? ' bottom-yellow' : '';
+        row += `<td class="${num(c.receive)>0?'receive-cell':''}">${saved ? fmt(c.receive) : ''}</td>`;
+        row += `<td class="use-cell">${saved ? fmt(c.actualUse) : ''}</td>`;
+        row += `<td>${saved ? fmt(c.stpUse) : ''}</td>`;
+        row += `<td>${saved ? fmt(c.ptrUse) : ''}</td>`;
+        row += `<td class="remain-cell${lowClass}">${fmt(c.remain)}</td>`;
+      });
+      row += `</tr>`;
+      return row;
+    }).join('');
+    const latestDate = Object.keys(state.records).sort().filter(d => d.slice(0,7) === getMonthKey($('#workDate').value || todayISO())).pop();
+    let footer = `<tr><td class="bottom-yellow left" colspan="3">ยอดคงเหลือ ณ ปัจจุบัน</td>`;
+    state.items.forEach(item => {
+      const c = latestDate ? latestComputedForDate(latestDate, item) : {remain:item.start};
+      footer += `<td class="bottom-green" colspan="5">${fmt(c.remain)}</td>`;
+    });
+    footer += `</tr><tr><td class="bottom-cyan left" colspan="3">ยอดตั้งต้น / เกณฑ์ขั้นต่ำ</td>`;
+    state.items.forEach(item => footer += `<td class="bottom-green" colspan="5">ตั้งต้น ${fmt(item.start)} / Min ${fmt(item.min)}</td>`);
+    footer += `</tr>`;
+    $(`#${targetId}`).innerHTML = `<thead>${h1}${h2}${h3}</thead><tbody>${body}${footer}</tbody>`;
+  }
+
+  function renderSideTable(side, targetId){
+    const sideName = side === 'stp' ? state.settings.stpName : state.settings.ptrName;
+    const records = monthRecords();
+    let h = `<tr><th class="date-col">Date</th><th class="qty-col">จำนวนตู้ ${esc(sideName)}</th>`;
+    state.items.forEach(item => h += `<th class="item-head">${esc(item.name)}<br><span class="mini">${esc(item.unit)}</span></th>`);
+    h += `<th>หมายเหตุ</th></tr>`;
+    let body = records.map(rec => {
+      const saved = !!state.records[rec.date];
+      let row = `<tr><td class="date-col left">${dateText(rec.date)}</td><td>${saved ? fmt(side==='stp'?rec.stpLoads:rec.ptrLoads) : ''}</td>`;
+      state.items.forEach(item => {
+        const c = latestComputedForDate(rec.date, item);
+        const v = side === 'stp' ? c.stpUse : c.ptrUse;
+        row += `<td>${saved ? fmt(v) : ''}</td>`;
+      });
+      row += `<td class="left">${saved ? esc(rec.note || '') : ''}</td></tr>`;
+      return row;
+    }).join('');
+    $(`#${targetId}`).innerHTML = `<thead>${h}</thead><tbody>${body}</tbody>`;
+  }
+
+  function renderDashboard(){
+    const records = Object.values(state.records).sort((a,b)=>a.date.localeCompare(b.date));
+    const monthKey = getMonthKey($('#workDate').value || todayISO());
+    const month = records.filter(r => r.date.slice(0,7) === monthKey);
+    const latestDate = records.length ? records[records.length-1].date : null;
+    let lowCount = 0;
+    let h = `<tr><th>รายการ</th><th>หน่วย</th><th>คงเหลือล่าสุด</th><th>Min</th><th>สถานะ</th><th>ใช้รวมเดือนนี้</th><th>STP</th><th>PTR</th><th>รับเข้าเดือนนี้</th></tr>`;
+    let body = state.items.map(item => {
+      const latest = latestDate ? latestComputedForDate(latestDate, item) : {remain:item.start, low:item.start<=item.min, near:item.start>item.min&&item.start<=item.min*1.25};
+      const useSum = month.reduce((s,r)=>s+num(r.items?.[item.id]?.actualUse),0);
+      const stpSum = month.reduce((s,r)=>s+num(r.items?.[item.id]?.stpUse),0);
+      const ptrSum = month.reduce((s,r)=>s+num(r.items?.[item.id]?.ptrUse),0);
+      const recSum = month.reduce((s,r)=>s+num(r.items?.[item.id]?.receive),0);
+      if(latest.low) lowCount++;
+      const status = latest.low ? '<span class="status-low">ต้องเติม</span>' : latest.near ? '<span class="status-mid">ใกล้ขั้นต่ำ</span>' : '<span class="status-good">ปกติ</span>';
+      return `<tr><td class="left"><b>${esc(item.name)}</b></td><td>${esc(item.unit)}</td><td class="right ${latest.low?'warn-cell':latest.near?'bottom-yellow':'ok-cell'}">${fmt(latest.remain)}</td><td class="right">${fmt(item.min)}</td><td>${status}</td><td class="right">${fmt(useSum)}</td><td class="right">${fmt(stpSum)}</td><td class="right">${fmt(ptrSum)}</td><td class="right">${fmt(recSum)}</td></tr>`;
+    }).join('');
+    $('#dashboardTable').innerHTML = `<thead>${h}</thead><tbody>${body}</tbody>`;
+    $('#sumItems').textContent = state.items.length;
+    $('#sumStp').textContent = fmt(month.reduce((s,r)=>s+num(r.stpLoads),0));
+    $('#sumPtr').textContent = fmt(month.reduce((s,r)=>s+num(r.ptrLoads),0));
+    $('#sumLow').textContent = lowCount;
+  }
+
+  function renderLowTable(){
+    const records = Object.values(state.records).sort((a,b)=>a.date.localeCompare(b.date));
+    const latestDate = records.length ? records[records.length-1].date : null;
+    let h = `<tr><th>รายการ</th><th>คงเหลือล่าสุด</th><th>Min</th><th>แนะนำ</th><th>สถิติ STP/ตู้</th><th>สถิติ PTR/ตู้</th></tr>`;
+    let rows = state.items.map(item => {
+      const c = latestDate ? latestComputedForDate(latestDate, item) : {remain:item.start};
+      const need = Math.max(0, num(item.min)*2 - num(c.remain));
+      const status = num(c.remain) <= num(item.min) ? 'ควรสั่ง/รับเข้าเพิ่ม' : num(c.remain) <= num(item.min)*1.25 ? 'เริ่มเช็คของสำรอง' : 'ยังพอใช้';
+      return {item,c,need,status};
+    }).sort((a,b)=>(a.c.remain-a.item.min)-(b.c.remain-b.item.min));
+    let body = rows.map(x => `<tr><td class="left"><b>${esc(x.item.name)}</b><br><span class="mini">${esc(x.item.unit)}</span></td><td class="right ${x.c.remain<=x.item.min?'warn-cell':x.c.remain<=x.item.min*1.25?'bottom-yellow':'ok-cell'}">${fmt(x.c.remain)}</td><td class="right">${fmt(x.item.min)}</td><td class="left">${esc(x.status)}${x.need>0?` • เติมประมาณ ${fmt(x.need)}`:''}</td><td class="right">${fmt(x.item.stpRate)}</td><td class="right">${fmt(x.item.ptrRate)}</td></tr>`).join('');
+    $('#lowTable').innerHTML = `<thead>${h}</thead><tbody>${body}</tbody>`;
+  }
+
+  function renderAll(){
+    renderDashboard();
+    renderCombinedTable('combinedTable');
+    renderCombinedTable('printTable');
+    renderSideTable('stp','stpTable');
+    renderSideTable('ptr','ptrTable');
+    renderLowTable();
+    const d = parseISO($('#workDate').value || todayISO());
+    const year = $('#yearMode').value === 'be' ? d.getFullYear()+543 : d.getFullYear();
+    $('#printTitle').textContent = `Packaging Material - สำหรับโหลดงานออก เดือน ${monthNamesTH[d.getMonth()]} ${year}`;
+  }
+
+  function renderSettings(){
+    $('#stpName').value = state.settings.stpName || 'STP';
+    $('#ptrName').value = state.settings.ptrName || 'PTR';
+    $('#statEditor').innerHTML = state.items.map(item => `<div class="stat-editor">
+      <strong>${esc(item.name)}<br><span class="mini">${esc(item.unit)}</span></strong>
+      <label><span>ยอดตั้งต้น</span><input type="number" step="1" id="start_${item.id}" value="${esc(item.start)}"></label>
+      <label><span>Min</span><input type="number" step="1" id="min_${item.id}" value="${esc(item.min)}"></label>
+      <label><span>STP / ตู้</span><input type="number" step="0.01" id="stpRate_${item.id}" value="${esc(item.stpRate)}"></label>
+      <label><span>PTR / ตู้</span><input type="number" step="0.01" id="ptrRate_${item.id}" value="${esc(item.ptrRate)}"></label>
+    </div>`).join('');
+  }
+
+  function saveSettings(){
+    state.settings.stpName = $('#stpName').value.trim() || 'STP';
+    state.settings.ptrName = $('#ptrName').value.trim() || 'PTR';
+    state.items = state.items.map(item => Object.assign({}, item, {
+      start: num($(`#start_${item.id}`).value),
+      min: num($(`#min_${item.id}`).value),
+      stpRate: num($(`#stpRate_${item.id}`).value),
+      ptrRate: num($(`#ptrRate_${item.id}`).value),
+    }));
+    saveState();
+    renderEntryList();
+    renderAll();
+    alert('บันทึกตั้งค่าแล้ว ✅');
+  }
+
+  function clearEntry(){
+    $('#stpLoads').value = 0; $('#ptrLoads').value = 0; $('#dailyNote').value = '';
+    renderEntryList();
+  }
+  function fillYesterday(){
+    const iso = $('#workDate').value || todayISO();
+    state.items.forEach(item => {
+      const c = $(`#counted_${item.id}`);
+      if(c) c.value = getPrevStock(iso, item);
+      const r = $(`#receive_${item.id}`);
+      if(r) r.value = 0;
+    });
+    renderEntryList();
+  }
+
+  function sheetXml(name, rows){
+    const cells = rows.map(row => '<Row>' + row.map(cell => {
+      const isNum = typeof cell === 'number' && Number.isFinite(cell);
+      return `<Cell><Data ss:Type="${isNum?'Number':'String'}">${esc(isNum ? cell : (cell ?? ''))}</Data></Cell>`;
+    }).join('') + '</Row>').join('\n');
+    return `<Worksheet ss:Name="${esc(name).slice(0,31)}"><Table>${cells}</Table></Worksheet>`;
+  }
+  function exportExcel(){
+    const monthKey = getMonthKey($('#workDate').value || todayISO());
+    const d = parseISO($('#workDate').value || todayISO());
+    const year = $('#yearMode').value === 'be' ? d.getFullYear()+543 : d.getFullYear();
+    const title = `Packaging Material - เดือน ${monthNamesTH[d.getMonth()]} ${year}`;
+    const records = monthRecords();
+    const combinedRows = [
+      [title],
+      ['Date','ตู้ STP','ตู้ PTR', ...state.items.flatMap(i => [`${i.name} รับเข้า`, `${i.name} เบิกใช้รวม`, `${i.name} ${state.settings.stpName}`, `${i.name} ${state.settings.ptrName}`, `${i.name} คงเหลือ`])]
+    ];
+    records.forEach(rec => {
+      const saved = !!state.records[rec.date];
+      combinedRows.push([dateText(rec.date), saved?num(rec.stpLoads):'', saved?num(rec.ptrLoads):'', ...state.items.flatMap(item => {
+        const c = latestComputedForDate(rec.date, item);
+        return saved ? [num(c.receive), num(c.actualUse), num(c.stpUse), num(c.ptrUse), num(c.remain)] : ['','','','',num(c.remain)];
+      })]);
+    });
+    const stpRows = [[`${state.settings.stpName} Usage - ${title}`], ['Date',`จำนวนตู้ ${state.settings.stpName}`,...state.items.map(i=>i.name),'หมายเหตุ']];
+    const ptrRows = [[`${state.settings.ptrName} Usage - ${title}`], ['Date',`จำนวนตู้ ${state.settings.ptrName}`,...state.items.map(i=>i.name),'หมายเหตุ']];
+    records.forEach(rec => {
+      const saved = !!state.records[rec.date];
+      stpRows.push([dateText(rec.date), saved?num(rec.stpLoads):'', ...state.items.map(item=> saved ? num(latestComputedForDate(rec.date,item).stpUse) : ''), saved ? rec.note || '' : '']);
+      ptrRows.push([dateText(rec.date), saved?num(rec.ptrLoads):'', ...state.items.map(item=> saved ? num(latestComputedForDate(rec.date,item).ptrUse) : ''), saved ? rec.note || '' : '']);
+    });
+    const summaryRows = [['รายการ','หน่วย','ยอดตั้งต้น','Min','STP/ตู้','PTR/ตู้','คงเหลือล่าสุด']];
+    const latestDate = Object.keys(state.records).sort().pop();
+    state.items.forEach(item => {
+      const c = latestDate ? latestComputedForDate(latestDate,item) : {remain:item.start};
+      summaryRows.push([item.name,item.unit,num(item.start),num(item.min),num(item.stpRate),num(item.ptrRate),num(c.remain)]);
+    });
+    const xml = `<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:html="http://www.w3.org/TR/REC-html40">
+${sheetXml('ตารางรวม', combinedRows)}${sheetXml(state.settings.stpName, stpRows)}${sheetXml(state.settings.ptrName, ptrRows)}${sheetXml('ตั้งค่าและคงเหลือ', summaryRows)}
+</Workbook>`;
+    downloadBlob(xml, `Packaging_Material_${monthKey}.xls`, 'application/vnd.ms-excel;charset=utf-8');
+  }
+  function downloadBlob(content, filename, type){
+    const blob = new Blob([content], {type});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }
+  function backupJSON(){
+    downloadBlob(JSON.stringify(state,null,2), `Packaging_Material_backup_${todayISO()}.json`, 'application/json;charset=utf-8');
+  }
+  function restoreJSON(file){
+    const reader = new FileReader();
+    reader.onload = () => {
+      try{
+        const imported = JSON.parse(reader.result);
+        if(!imported.items || !imported.records) throw new Error('รูปแบบไฟล์ไม่ถูกต้อง');
+        state = imported;
+        state.items = mergeItems(state.items);
+        state.settings = Object.assign({stpName:'STP', ptrName:'PTR'}, state.settings || {});
+        saveState();
+        renderEntryList(); renderAll();
+        alert('นำเข้าข้อมูลแล้ว ✅');
+      }catch(err){ alert('นำเข้าไม่สำเร็จ: ' + err.message); }
+    };
+    reader.readAsText(file);
+  }
+
+  function bindEvents(){
+    $('#workDate').value = todayISO();
+    $('#saveBtn').addEventListener('click', saveToday);
+    $('#syncNowBtn').addEventListener('click', () => saveCloudState(true));
+    $('#exportXlsBtn').addEventListener('click', exportExcel);
+    $('#printBtn').addEventListener('click', () => window.print());
+    $('#backupBtn').addEventListener('click', backupJSON);
+    $('#restoreInput').addEventListener('change', e => { if(e.target.files[0]) restoreJSON(e.target.files[0]); e.target.value=''; });
+    $('#loadExistingBtn').addEventListener('click', () => {
+      const rec = getRecord($('#workDate').value || todayISO());
+      if(rec) applyRecordToForm(rec); else alert('ยังไม่มีข้อมูลของวันที่นี้');
+    });
+    $('#fillYesterdayBtn').addEventListener('click', fillYesterday);
+    $('#clearEntryBtn').addEventListener('click', clearEntry);
+    $('#stpLoads').addEventListener('input', renderPreviewOnly);
+    $('#ptrLoads').addEventListener('input', renderPreviewOnly);
+    $('#workDate').addEventListener('change', () => {
+      const rec = getRecord($('#workDate').value);
+      if(rec) applyRecordToForm(rec); else { $('#dailyNote').value=''; renderEntryList(); }
+      renderAll();
+    });
+    $('#yearMode').addEventListener('change', renderAll);
+    $$('.tab').forEach(btn => btn.addEventListener('click', () => {
+      $$('.tab').forEach(x=>x.classList.remove('active'));
+      $$('.section').forEach(x=>x.classList.remove('active'));
+      btn.classList.add('active');
+      $(`#${btn.dataset.tab}Section`).classList.add('active');
+    }));
+    $('#openSettingBtn').addEventListener('click', () => { renderSettings(); $('#settingDrawer').classList.add('open'); });
+    $('#closeSettingBtn').addEventListener('click', () => $('#settingDrawer').classList.remove('open'));
+    $('#saveSettingBtn').addEventListener('click', saveSettings);
+    $('#settingDrawer').addEventListener('click', e => { if(e.target.id === 'settingDrawer') $('#settingDrawer').classList.remove('open'); });
+    $('#resetAllBtn').addEventListener('click', () => {
+      if(confirm('ต้องการลบข้อมูลทั้งหมดและเริ่มฐานข้อมูลเปล่าจริงไหม?')){
+        state = createEmptyState();
+        saveState();
+        $('#settingDrawer').classList.remove('open');
+        renderEntryList(); renderAll();
+      }
+    });
+  }
+
+  bindEvents();
+  renderEntryList();
+  renderAll();
+  initFirebaseSync();
+})();
+</script>
+</body>
+</html>

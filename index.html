@@ -129,8 +129,25 @@
     .pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 9px;font-size:12px;font-weight:800;background:#e0f2fe;color:#075985}
     .firebase-pill{background:#ecfeff;color:#155e75;border:1px solid #a5f3fc;padding:7px 10px}
     .small-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+
+    .view-switch{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .count-view{display:none}
+    .count-view.active{display:block}
+    .count-header{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}
+    .count-title h2{margin:0;font-size:20px}.count-title p{margin:2px 0 0;color:var(--muted);font-size:13px}
+    .count-toolbar{display:grid;grid-template-columns:160px minmax(160px,1fr) auto auto;gap:8px;align-items:end;margin-bottom:12px}
+    .count-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+    .count-card{background:#fff;border:1px solid #dbe3ee;border-radius:16px;box-shadow:var(--shadow);padding:12px;display:flex;flex-direction:column;gap:10px}
+    .count-card-head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+    .count-card h3{font-size:15px;line-height:1.25;margin:0;font-weight:900}.count-card .unit{font-size:11px;color:#475569;background:#eef2ff;border-radius:999px;padding:3px 8px;white-space:nowrap;font-weight:800}
+    .count-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.count-stat{border:1px solid #e2e8f0;border-radius:12px;padding:8px;background:#f8fafc}.count-stat b{display:block;font-size:18px}.count-stat span{font-size:11px;color:#64748b;font-weight:700}
+    .quick-line{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}.quick-line input{font-size:18px;font-weight:800;padding:12px}.quick-line button{min-width:92px;padding:13px 12px}
+    .quick-receive{background:#facc15;color:#111827}.quick-count{background:#2563eb;color:white}.quick-reset{background:#f1f5f9;color:#334155;font-size:12px;padding:7px 9px}
+    .count-log{margin-top:12px;border:1px dashed #cbd5e1;border-radius:14px;background:#fbfdff;padding:10px}.count-log h3{margin:0 0 8px;font-size:13px}.count-log-list{display:flex;flex-direction:column;gap:6px;max-height:160px;overflow:auto}.count-log-item{font-size:12px;color:#334155;background:white;border:1px solid #e2e8f0;border-radius:10px;padding:7px 9px;display:flex;justify-content:space-between;gap:8px}
+    .main-view.hide-view{display:none!important}
     .print-only{display:none}
-    @media (max-width: 1080px){.grid{grid-template-columns:1fr}.summary-cards{grid-template-columns:repeat(2,1fr)}.table-wrap{max-height:62vh}.form-row.four,.stat-editor{grid-template-columns:1fr 1fr}}
+    @media (max-width: 1080px){.grid{grid-template-columns:1fr}.summary-cards{grid-template-columns:repeat(2,1fr)}.table-wrap{max-height:62vh}.form-row.four,.stat-editor{grid-template-columns:1fr 1fr}.count-toolbar{grid-template-columns:1fr 1fr}.count-grid{grid-template-columns:1fr}.quick-line button{min-width:105px}}
+    @media (max-width: 640px){header{padding:10px 12px}.title h1{font-size:18px}.actions{width:100%;gap:6px}.actions button,.actions .file-btn,.actions .pill{font-size:12px;padding:8px 9px}.container{margin:10px auto;padding:0 10px 80px}.count-toolbar{grid-template-columns:1fr}.count-header{align-items:stretch}.count-header .actions{width:auto}.count-title h2{font-size:18px}.count-card{border-radius:14px;padding:11px}.count-stats{grid-template-columns:repeat(3,1fr)}.count-stat{padding:7px}.count-stat b{font-size:16px}.quick-line{grid-template-columns:1fr}.quick-line button{width:100%;min-width:0;font-size:15px}.summary-cards{grid-template-columns:1fr}}
     @media print{
       body{background:white}.grid,.actions,.tabs,.no-print{display:none!important}.print-only{display:block!important}
       header{position:static;border:0}.container{max-width:none;margin:0;padding:0}.card{box-shadow:none;border:0}.section{display:block!important;padding:0}.table-wrap{overflow:visible;max-height:none;border:0}table{font-size:9px}th,td{padding:3px}.date-col{position:static}th{position:static}
@@ -147,6 +164,7 @@
   <div class="actions no-print">
     <span class="pill firebase-pill" id="firebaseStatus">☁️ Firebase: กำลังเชื่อมต่อ...</span>
     <button class="primary" id="saveBtn">💾 บันทึกวันนี้</button>
+    <button class="success" id="openCountBtn">📱 หน้าเดินนับ</button>
     <button class="ghost" id="syncNowBtn">🔄 ซิงก์ Firebase</button>
     <button class="success" id="exportXlsBtn">📗 ส่งออก Excel STP/PTR</button>
     <button class="ghost" id="exportStpBtn">⬇️ STP</button>
@@ -160,7 +178,7 @@
 </header>
 
 <div class="container">
-  <div class="grid no-print">
+  <div class="grid no-print main-view" id="mainView">
     <aside class="card">
       <h2>📝 ใส่ข้อมูลประจำวัน</h2>
       <div class="body">
@@ -209,6 +227,38 @@
       <section class="section" id="lowSection"><div class="table-wrap"><table id="lowTable"></table></div></section>
     </main>
   </div>
+
+
+  <section class="count-view no-print" id="countView">
+    <div class="count-header">
+      <div class="count-title">
+        <h2>📱 หน้าเดินนับของจริง</h2>
+        <p>ใส่จำนวนจากแต่ละจุดแล้วกดส่ง ระบบจะบวกสแต็กไว้ในวันที่เลือกทันที</p>
+      </div>
+      <div class="actions">
+        <button class="ghost" id="backMainBtn">← กลับหน้าหลัก</button>
+        <button class="ghost" id="undoQuickBtn">↩️ ย้อนล่าสุด</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:12px">
+      <div class="body">
+        <div class="count-toolbar">
+          <label><span>วันที่เดินนับ</span><input type="date" id="quickDate"></label>
+          <label><span>ค้นหาชื่ออุปกรณ์</span><input type="search" id="quickSearch" placeholder="พิมพ์ชื่อ เช่น เทป / เชือก / ถุง" autocomplete="off"></label>
+          <button class="ghost" id="quickLoadBtn">🔄 โหลดวันนี้</button>
+          <button class="danger" id="clearQuickStackBtn">🧹 ล้างสแต็กวันนี้</button>
+        </div>
+        <p class="hint">ช่องนี้เหมาะสำหรับเดินเช็คหลายจุด: <b>รับเข้า</b> จะบวกเข้า “รับเข้ารวม” ของวันนั้น และ <b>คงเหลือ</b> จะบวกเป็นยอดนับจริงรวมของวันนั้น ไม่ต้องจำยอดเองค่ะ</p>
+      </div>
+    </div>
+
+    <div id="quickCountList" class="count-grid"></div>
+    <div class="count-log">
+      <h3>🧾 รายการที่กดล่าสุดวันนี้</h3>
+      <div id="quickLogList" class="count-log-list"></div>
+    </div>
+  </section>
 
   <div class="print-only">
     <h2 id="printTitle">Packaging Material - สำหรับโหลดงานออก</h2>
@@ -359,6 +409,7 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     saveLocalState();
     renderEntryList();
     renderAll();
+    renderQuickCounter();
     applyingCloudState = false;
   }
   async function initFirebaseSync(){
@@ -764,6 +815,194 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     renderEntryList(); renderAll();
   }
 
+
+  // ---------- หน้าเดินนับของจริง / Mobile Stack ----------
+  function getQuickDate(){ return $('#quickDate')?.value || $('#workDate')?.value || todayISO(); }
+  function showCountView(){
+    $('#mainView').classList.add('hide-view');
+    $('#countView').classList.add('active');
+    $('#quickDate').value = $('#workDate').value || todayISO();
+    renderQuickCounter();
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+  function showMainView(){
+    $('#countView').classList.remove('active');
+    $('#mainView').classList.remove('hide-view');
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+  function ensureQuickRecord(iso){
+    if(!state.records[iso]){
+      state.records[iso] = {date:iso, stpLoads:Math.max(0, Math.round(num($('#stpLoads')?.value || 0))), ptrLoads:Math.max(0, Math.round(num($('#ptrLoads')?.value || 0))), note:$('#dailyNote')?.value?.trim?.() || '', items:{}, quickLogs:[], updatedAt:new Date().toISOString()};
+    }
+    state.records[iso].items = state.records[iso].items || {};
+    state.records[iso].quickLogs = state.records[iso].quickLogs || [];
+    return state.records[iso];
+  }
+  function getQuickItemEntry(record, item){
+    const saved = record.items?.[item.id] || {};
+    return Object.assign({receive:'', stpReceive:'', ptrReceive:'', counted:''}, saved);
+  }
+  function updateComputedQuickItem(iso, item, entry){
+    const record = ensureQuickRecord(iso);
+    record.stpLoads = Math.max(0, Math.round(num(record.stpLoads)));
+    record.ptrLoads = Math.max(0, Math.round(num(record.ptrLoads)));
+    const c = computeItem(item, entry, iso, record.stpLoads, record.ptrLoads);
+    record.items[item.id] = Object.assign({}, entry, c);
+    record.updatedAt = new Date().toISOString();
+    return record.items[item.id];
+  }
+  function stackQuickValue(itemId, type){
+    const iso = getQuickDate();
+    const item = state.items.find(x => x.id === itemId);
+    const input = $(`#quick_${type}_${itemId}`);
+    if(!item || !input) return;
+    const amount = num(input.value);
+    if(amount <= 0){
+      alert('กรุณาใส่จำนวนมากกว่า 0 ก่อนกดส่งนะคะ');
+      input.focus();
+      return;
+    }
+    const record = ensureQuickRecord(iso);
+    const entry = getQuickItemEntry(record, item);
+    if(type === 'receive'){
+      if(entry.quickReceiveBase === undefined) entry.quickReceiveBase = isBlank(entry.receive) ? 0 : num(entry.receive);
+      entry.quickReceiveStack = num(entry.quickReceiveStack) + amount;
+      entry.receive = num(entry.quickReceiveBase) + num(entry.quickReceiveStack);
+      entry.stpReceive = '';
+      entry.ptrReceive = '';
+    }else{
+      if(entry.quickCountedBase === undefined) entry.quickCountedBase = isBlank(entry.counted) ? 0 : num(entry.counted);
+      entry.quickCountedStack = num(entry.quickCountedStack) + amount;
+      entry.counted = num(entry.quickCountedBase) + num(entry.quickCountedStack);
+    }
+    updateComputedQuickItem(iso, item, entry);
+    record.quickLogs.push({time:new Date().toISOString(), itemId, type, amount});
+    saveState();
+    input.value = '';
+    input.focus();
+    if($('#workDate').value === iso) applyRecordToForm(record);
+    renderAll();
+    renderQuickCounter();
+  }
+  function resetQuickItem(itemId, type=null){
+    const iso = getQuickDate();
+    const item = state.items.find(x => x.id === itemId);
+    const record = ensureQuickRecord(iso);
+    if(!item || !record.items?.[item.id]) return;
+    const entry = getQuickItemEntry(record, item);
+    if(type === 'receive' || type === null){
+      entry.quickReceiveStack = 0;
+      entry.receive = entry.quickReceiveBase !== undefined ? num(entry.quickReceiveBase) : 0;
+      entry.stpReceive = '';
+      entry.ptrReceive = '';
+    }
+    if(type === 'counted' || type === null){
+      entry.quickCountedStack = 0;
+      entry.counted = entry.quickCountedBase !== undefined ? num(entry.quickCountedBase) : '';
+    }
+    updateComputedQuickItem(iso, item, entry);
+    saveState();
+    if($('#workDate').value === iso) applyRecordToForm(record);
+    renderAll();
+    renderQuickCounter();
+  }
+  function undoQuickLast(){
+    const iso = getQuickDate();
+    const record = state.records[iso];
+    if(!record?.quickLogs?.length){ alert('ยังไม่มีรายการให้ย้อนกลับ'); return; }
+    const log = record.quickLogs.pop();
+    const item = state.items.find(x => x.id === log.itemId);
+    if(item){
+      const entry = getQuickItemEntry(record, item);
+      if(log.type === 'receive'){
+        entry.quickReceiveStack = Math.max(0, num(entry.quickReceiveStack) - num(log.amount));
+        entry.receive = num(entry.quickReceiveBase || 0) + num(entry.quickReceiveStack);
+        entry.stpReceive = '';
+        entry.ptrReceive = '';
+      }else{
+        entry.quickCountedStack = Math.max(0, num(entry.quickCountedStack) - num(log.amount));
+        entry.counted = num(entry.quickCountedBase || 0) + num(entry.quickCountedStack);
+      }
+      updateComputedQuickItem(iso, item, entry);
+    }
+    saveState();
+    if($('#workDate').value === iso) applyRecordToForm(record);
+    renderAll();
+    renderQuickCounter();
+  }
+  function clearQuickStackToday(){
+    const iso = getQuickDate();
+    const record = state.records[iso];
+    if(!record){ alert('ยังไม่มีข้อมูลสแต็กของวันนี้'); return; }
+    if(!confirm('ล้างเฉพาะยอดที่กดสแต็กในหน้าเดินนับของวันที่นี้ใช่ไหม?')) return;
+    state.items.forEach(item => {
+      const entry = record.items?.[item.id];
+      if(!entry) return;
+      if(entry.quickReceiveBase !== undefined){ entry.receive = num(entry.quickReceiveBase); entry.quickReceiveStack = 0; entry.stpReceive = ''; entry.ptrReceive = ''; }
+      if(entry.quickCountedBase !== undefined){ entry.counted = entry.quickCountedBase === '' ? '' : num(entry.quickCountedBase); entry.quickCountedStack = 0; }
+      updateComputedQuickItem(iso, item, entry);
+    });
+    record.quickLogs = [];
+    saveState();
+    if($('#workDate').value === iso) applyRecordToForm(record);
+    renderAll();
+    renderQuickCounter();
+  }
+  function quickStatusText(c, item){
+    if(c.low) return '<span class="status-low">ต่ำกว่า Min</span>';
+    if(c.near) return '<span class="status-mid">ใกล้ Min</span>';
+    return '<span class="status-good">พอใช้</span>';
+  }
+  function renderQuickCounter(){
+    const box = $('#quickCountList');
+    if(!box) return;
+    const iso = getQuickDate();
+    const q = ($('#quickSearch')?.value || '').trim().toLowerCase();
+    const record = state.records[iso] || {items:{}, quickLogs:[]};
+    const list = state.items.filter(item => !q || item.name.toLowerCase().includes(q) || item.unit.toLowerCase().includes(q));
+    box.innerHTML = list.map(item => {
+      const c = latestComputedForDate(iso, item);
+      const entry = record.items?.[item.id] || {};
+      const recStack = num(entry.quickReceiveStack);
+      const countStack = num(entry.quickCountedStack);
+      return `<article class="count-card">
+        <div class="count-card-head"><h3>${esc(item.name)}</h3><span class="unit">${esc(item.unit)}</span></div>
+        <div class="count-stats">
+          <div class="count-stat"><span>รับเข้าสแต็ก</span><b>${fmt(recStack)}</b></div>
+          <div class="count-stat"><span>คงเหลือสแต็ก</span><b>${fmt(countStack)}</b></div>
+          <div class="count-stat"><span>ยอดคงเหลือรวม</span><b>${fmt(c.remain)}</b></div>
+        </div>
+        <div class="quick-line">
+          <label><span>รับเข้าเพิ่ม</span><input type="number" min="0" step="1" inputmode="decimal" id="quick_receive_${item.id}" placeholder="ใส่จำนวนรับเข้า"></label>
+          <button class="quick-receive" data-quick-type="receive" data-item-id="${esc(item.id)}">ส่งรับเข้า</button>
+        </div>
+        <div class="quick-line">
+          <label><span>นับคงเหลือจากจุดนี้</span><input type="number" min="0" step="1" inputmode="decimal" id="quick_counted_${item.id}" placeholder="ใส่จำนวนที่เจอ"></label>
+          <button class="quick-count" data-quick-type="counted" data-item-id="${esc(item.id)}">ส่งคงเหลือ</button>
+        </div>
+        <div class="calc-line">
+          <div>เมื่อวาน: <b>${fmt(c.prevStock)}</b></div><div>รับเข้ารวมวันนี้: <b>${fmt(c.receive)}</b></div>
+          <div>พร้อมใช้: <b>${fmt(c.available)}</b></div><div>สถานะ: ${quickStatusText(c, item)}</div>
+        </div>
+        <div class="small-actions"><button class="quick-reset" data-reset-type="counted" data-item-id="${esc(item.id)}">รีเซ็ตคงเหลือ</button><button class="quick-reset" data-reset-type="receive" data-item-id="${esc(item.id)}">รีเซ็ตรับเข้า</button></div>
+      </article>`;
+    }).join('') || `<div class="card"><div class="body">ไม่พบชื่ออุปกรณ์ที่ค้นหา</div></div>`;
+    renderQuickLogs();
+  }
+  function renderQuickLogs(){
+    const iso = getQuickDate();
+    const logBox = $('#quickLogList');
+    if(!logBox) return;
+    const logs = (state.records[iso]?.quickLogs || []).slice(-20).reverse();
+    logBox.innerHTML = logs.length ? logs.map(log => {
+      const item = state.items.find(x => x.id === log.itemId);
+      const t = new Date(log.time);
+      const time = Number.isNaN(t.getTime()) ? '' : t.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+      const type = log.type === 'receive' ? 'รับเข้า' : 'คงเหลือ';
+      return `<div class="count-log-item"><span>${esc(time)} • ${esc(item?.name || log.itemId)} • ${esc(type)}</span><b>+${fmt(log.amount)}</b></div>`;
+    }).join('') : '<div class="mini">ยังไม่มีรายการที่กดในวันนี้</div>';
+  }
+
   // ---------- Excel XML export: รูปแบบเหมือนตารางตัวอย่าง ----------
   function xmlCell(value='', style='Default', type=null, mergeAcross=0){
     const isNumber = type ? type === 'Number' : (typeof value === 'number' && Number.isFinite(value));
@@ -897,6 +1136,11 @@ ${sheets.join('\n')}
   function bindEvents(){
     $('#workDate').value = todayISO();
     $('#saveBtn').addEventListener('click', saveToday);
+    $('#openCountBtn').addEventListener('click', showCountView);
+    $('#backMainBtn').addEventListener('click', showMainView);
+    $('#undoQuickBtn').addEventListener('click', undoQuickLast);
+    $('#quickLoadBtn').addEventListener('click', renderQuickCounter);
+    $('#clearQuickStackBtn').addEventListener('click', clearQuickStackToday);
     $('#syncNowBtn').addEventListener('click', () => saveCloudState(true));
     $('#exportXlsBtn').addEventListener('click', () => exportExcel('both'));
     $('#exportStpBtn').addEventListener('click', () => exportExcel('stp'));
@@ -917,7 +1161,11 @@ ${sheets.join('\n')}
       if(rec) applyRecordToForm(rec); else { $('#dailyNote').value=''; renderEntryList(); }
       renderAll();
     });
-    $('#yearMode').addEventListener('change', renderAll);
+    $('#yearMode').addEventListener('change', () => { renderAll(); renderQuickCounter(); });
+    $('#quickDate').addEventListener('change', () => { $('#workDate').value = $('#quickDate').value || todayISO(); const rec = getRecord($('#workDate').value); if(rec) applyRecordToForm(rec); else { $('#dailyNote').value=''; renderEntryList(); } renderAll(); renderQuickCounter(); });
+    $('#quickSearch').addEventListener('input', renderQuickCounter);
+    $('#quickCountList').addEventListener('click', e => { const send = e.target.closest('[data-quick-type]'); if(send) stackQuickValue(send.dataset.itemId, send.dataset.quickType); const reset = e.target.closest('[data-reset-type]'); if(reset) resetQuickItem(reset.dataset.itemId, reset.dataset.resetType); });
+    $('#quickCountList').addEventListener('keydown', e => { if(e.key !== 'Enter') return; const input = e.target.closest('input[id^="quick_"]'); if(!input) return; e.preventDefault(); const [, type, ...rest] = input.id.split('_'); stackQuickValue(rest.join('_'), type); });
     $$('.tab').forEach(btn => btn.addEventListener('click', () => {
       $$('.tab').forEach(x=>x.classList.remove('active'));
       $$('.section').forEach(x=>x.classList.remove('active'));
@@ -942,6 +1190,7 @@ ${sheets.join('\n')}
   bindEvents();
   renderEntryList();
   renderAll();
+  renderQuickCounter();
   initFirebaseSync();
 })();
 </script>

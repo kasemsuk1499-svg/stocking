@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Packaging Material Stock - STP / PTR</title>
+  <title>Packaging Material Stock - STP / PTR v3.2</title>
   <style>
     :root{
       --bg:#f5f8fb;
@@ -198,7 +198,7 @@
           <button class="ghost" id="fillYesterdayBtn">↩️ ใส่ยอดนับวันนี้ = ยอดเมื่อวาน</button>
           <button class="ghost" id="clearEntryBtn">🧹 ล้างฟอร์ม</button>
         </div>
-        <p class="hint">วิธีคิด: พิมพ์ตัวเลขให้ครบก่อน แล้วกด <b>Enter</b> เพื่อคำนวณ/เทียบยอดใหม่ ✅ ระบบจะใช้ <b>ยอดคงเหลือเมื่อวาน + รับเข้า - ยอดนับจริงวันนี้</b> = เบิกใช้จริง แล้วแบ่งให้ STP/PTR ตามสถิติต่อ 1 ตู้ และเก็บยอดคงเหลือแยก STP/PTR สำหรับส่งออก Excel</p>
+        <p class="hint">วิธีคิดใหม่: ให้ยึด <b>ยอดคงเหลือจริงที่นับได้</b> เป็นหลักเสมอ ✅ ยอดคงเหลือนี้ถือว่า <b>รวมของรับเข้าแล้ว</b> ส่วนช่อง <b>รับเข้า</b> เอาไว้หักล้างในสูตร <b>เบิกใช้ = ยอดเมื่อวาน + รับเข้า - คงเหลือจริง</b> เพื่อให้ตารางตรงกับยอดคงเหลือเท่านั้น</p>
         <hr style="border:0;border-top:1px solid #e2e8f0;margin:12px 0">
         <div id="entryList" class="entry-list"></div>
       </div>
@@ -249,7 +249,7 @@
           <button class="ghost" id="quickLoadBtn">🔄 โหลดวันนี้</button>
           <button class="danger" id="clearQuickStackBtn">🧹 ล้างสแต็กวันนี้</button>
         </div>
-        <p class="hint">ช่องนี้เหมาะสำหรับเดินเช็คหลายจุด: <b>รับเข้า</b> จะบวกเข้า “รับเข้ารวม” ของวันนั้น และ <b>คงเหลือ</b> จะบวกเป็นยอดนับจริงรวมของวันนั้น ไม่ต้องจำยอดเองค่ะ</p>
+        <p class="hint">ช่องนี้เหมาะสำหรับเดินเช็คหลายจุด: <b>คงเหลือ</b> ที่กดสแต็กคือยอดจริงปลายวันที่ <b>รวมรับเข้าแล้ว</b> ส่วน <b>รับเข้า</b> จะถูกใช้เป็นตัวยอดหักล้างในตาราง เพื่อคำนวณเบิกใช้ให้เหลือตรงกับคงเหลือจริงค่ะ</p>
       </div>
     </div>
 
@@ -492,8 +492,11 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     const ptrReceive = receiveSplit.ptrReceive;
     const countedRaw = entry?.counted;
     const countedIsBlank = isBlank(countedRaw);
+    // คงเหลือจริงวันนี้ = ยอดปลายทางที่นับได้จริง และถือว่ารวมรับเข้าแล้ว
+    // ดังนั้นช่องรับเข้าใช้เป็นยอดหักล้าง ไม่เอาไปบวกซ้ำกับคงเหลือ
     const counted = countedIsBlank ? prevStock + receive : clamp(countedRaw);
     const available = prevStock + receive;
+    const countedMinusReceive = counted - receive;
     const actualUse = Math.max(0, available - counted);
     const adjustment = counted > available ? counted - available : 0;
     const expectedStp = Math.max(0, stpLoads * num(item.stpRate));
@@ -524,7 +527,7 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     ptrRemain = Math.max(0, ptrRemain);
     const low = counted <= num(item.min);
     const near = counted > num(item.min) && counted <= num(item.min)*1.25;
-    return {prevStock, prevStp, prevPtr, receive, stpReceive, ptrReceive, counted, available, actualUse, adjustment, expectedStp, expectedPtr, stpUse, ptrUse, remain:counted, stpRemain, ptrRemain, low, near};
+    return {prevStock, prevStp, prevPtr, receive, stpReceive, ptrReceive, counted, countedMinusReceive, available, actualUse, adjustment, expectedStp, expectedPtr, stpUse, ptrUse, remain:counted, stpRemain, ptrRemain, low, near};
   }
 
   function readEntryForm(){
@@ -585,11 +588,12 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
           <label><span>รับเข้ารวม</span><input type="number" min="0" step="1" id="receive_${item.id}" value="${esc(entry.receive ?? '')}" placeholder="รวม"></label>
           <label><span>รับเข้า ${esc(state.settings.stpName)}</span><input type="number" min="0" step="1" id="stpReceive_${item.id}" value="${esc(entry.stpReceive ?? '')}" placeholder="ว่าง=ออโต้"></label>
           <label><span>รับเข้า ${esc(state.settings.ptrName)}</span><input type="number" min="0" step="1" id="ptrReceive_${item.id}" value="${esc(entry.ptrReceive ?? '')}" placeholder="ว่าง=ออโต้"></label>
-          <label><span>นับได้รวมวันนี้</span><input type="number" min="0" step="1" id="counted_${item.id}" value="${esc(entry.counted ?? '')}" placeholder="ว่าง=ไม่เบิก"></label>
+          <label><span>คงเหลือจริงรวมวันนี้</span><input type="number" min="0" step="1" id="counted_${item.id}" value="${esc(entry.counted ?? '')}" placeholder="รวมรับเข้าแล้ว"></label>
         </div>
         <div class="calc-line">
-          <div>เมื่อวานรวม: <b>${fmt(c.prevStock)}</b></div><div>พร้อมใช้รวม: <b>${fmt(c.available)}</b></div>
-          <div>รับเข้าแบ่ง: <b>${esc(state.settings.stpName)} ${fmt(c.stpReceive)}</b> / <b>${esc(state.settings.ptrName)} ${fmt(c.ptrReceive)}</b></div><div>เบิกใช้รวม: <b>${fmt(c.actualUse)}</b></div>
+          <div>เมื่อวานรวม: <b>${fmt(c.prevStock)}</b></div><div>รับเข้ารวม: <b>${fmt(c.receive)}</b></div>
+          <div>คงเหลือจริง: <b>${fmt(c.remain)}</b></div><div>เบิกใช้รวม: <b>${fmt(c.actualUse)}</b></div>
+          <div>รับเข้าแบ่ง: <b>${esc(state.settings.stpName)} ${fmt(c.stpReceive)}</b> / <b>${esc(state.settings.ptrName)} ${fmt(c.ptrReceive)}</b></div><div>สูตร: <b>เมื่อวาน + รับเข้า - คงเหลือ</b></div>
           <div>เบิก ${esc(state.settings.stpName)}: <b>${fmt(c.stpUse)}</b> → เหลือ <b>${fmt(c.stpRemain)}</b></div><div>เบิก ${esc(state.settings.ptrName)}: <b>${fmt(c.ptrUse)}</b> → เหลือ <b>${fmt(c.ptrRemain)}</b></div>
           <div>Min รวม: <b>${fmt(item.min)}</b></div><div>สถานะ: ${status}</div>
         </div>
@@ -970,19 +974,19 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
         <div class="count-stats">
           <div class="count-stat"><span>รับเข้าสแต็ก</span><b>${fmt(recStack)}</b></div>
           <div class="count-stat"><span>คงเหลือสแต็ก</span><b>${fmt(countStack)}</b></div>
-          <div class="count-stat"><span>ยอดคงเหลือรวม</span><b>${fmt(c.remain)}</b></div>
+          <div class="count-stat"><span>คงเหลือจริงรวม</span><b>${fmt(c.remain)}</b></div>
         </div>
         <div class="quick-line">
           <label><span>รับเข้าเพิ่ม</span><input type="number" min="0" step="1" inputmode="decimal" id="quick_receive_${item.id}" placeholder="ใส่จำนวนรับเข้า"></label>
           <button class="quick-receive" data-quick-type="receive" data-item-id="${esc(item.id)}">ส่งรับเข้า</button>
         </div>
         <div class="quick-line">
-          <label><span>นับคงเหลือจากจุดนี้</span><input type="number" min="0" step="1" inputmode="decimal" id="quick_counted_${item.id}" placeholder="ใส่จำนวนที่เจอ"></label>
+          <label><span>นับคงเหลือจากจุดนี้</span><input type="number" min="0" step="1" inputmode="decimal" id="quick_counted_${item.id}" placeholder="ยอดนี้รวมรับเข้าแล้ว"></label>
           <button class="quick-count" data-quick-type="counted" data-item-id="${esc(item.id)}">ส่งคงเหลือ</button>
         </div>
         <div class="calc-line">
           <div>เมื่อวาน: <b>${fmt(c.prevStock)}</b></div><div>รับเข้ารวมวันนี้: <b>${fmt(c.receive)}</b></div>
-          <div>พร้อมใช้: <b>${fmt(c.available)}</b></div><div>สถานะ: ${quickStatusText(c, item)}</div>
+          <div>คงเหลือจริง: <b>${fmt(c.remain)}</b></div><div>สถานะ: ${quickStatusText(c, item)}</div>
         </div>
         <div class="small-actions"><button class="quick-reset" data-reset-type="counted" data-item-id="${esc(item.id)}">รีเซ็ตคงเหลือ</button><button class="quick-reset" data-reset-type="receive" data-item-id="${esc(item.id)}">รีเซ็ตรับเข้า</button></div>
       </article>`;

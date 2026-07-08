@@ -440,21 +440,79 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     const dates = Object.keys(state.records).filter(d => d < iso).sort();
     return dates.length ? state.records[dates[dates.length-1]] : null;
   }
-  function getPrevSideStock(iso, item, side){
-    const prev = previousRecordBefore(iso);
-    const key = side === 'stp' ? 'stpRemain' : 'ptrRemain';
-    if(prev?.items?.[item.id] && prev.items[item.id][key] !== undefined) return num(prev.items[item.id][key]);
-    if(prev?.items?.[item.id]?.remain !== undefined){
-      const totalStart = itemTotalStart(item);
-      const ratio = totalStart > 0 ? (side === 'stp' ? num(item.stpStart)/totalStart : num(item.ptrStart)/totalStart) : (side === 'stp' ? 1 : 0);
-      return side === 'stp' ? Math.round(num(prev.items[item.id].remain) * ratio) : num(prev.items[item.id].remain) - Math.round(num(prev.items[item.id].remain) * ratio);
-    }
-    return side === 'stp' ? num(item.stpStart) : num(item.ptrStart);
+  function hasRawInputs(saved){
+    return saved && (saved.rawReceive !== undefined || saved.rawStpReceive !== undefined || saved.rawPtrReceive !== undefined || saved.rawCounted !== undefined);
   }
-  function getPrevStock(iso, item){ return getPrevSideStock(iso, item, 'stp') + getPrevSideStock(iso, item, 'ptr'); }
+  function entryFromSaved(saved){
+    return {
+      receive: saved?.rawReceive !== undefined ? saved.rawReceive : (saved?.receive ?? ''),
+      stpReceive: saved?.rawStpReceive !== undefined ? saved.rawStpReceive : (saved?.stpReceive ?? ''),
+      ptrReceive: saved?.rawPtrReceive !== undefined ? saved.rawPtrReceive : (saved?.ptrReceive ?? ''),
+      counted: saved?.rawCounted !== undefined ? saved.rawCounted : (saved?.counted ?? '')
+    };
+  }
+  function makeCarryForwardComputed(item, prevStp, prevPtr){
+    const prevStock = prevStp + prevPtr;
+    return {prevStock, prevStp, prevPtr, receive:0, stpReceive:0, ptrReceive:0, counted:'', available:prevStock, actualUse:0, adjustment:0, expectedStp:0, expectedPtr:0, stpUse:0, ptrUse:0, remain:prevStock, stpRemain:prevStp, ptrRemain:prevPtr, low: prevStock <= item.min, near: prevStock > item.min && prevStock <= item.min*1.25};
+  }
+  function looksLikeAutoZeroCarryBug(saved, prevStp, prevPtr){
+    if(!saved) return false;
+    const prevStock = prevStp + prevPtr;
+    const rawCountedIsExplicit = saved.rawCounted !== undefined && !isBlank(saved.rawCounted);
+    const hasQuickStack = num(saved.quickReceiveStack) > 0 || num(saved.quickCountedStack) > 0;
+    return prevStock > 0
+      && num(saved.receive) === 0 && num(saved.stpReceive) === 0 && num(saved.ptrReceive) === 0
+      && num(saved.actualUse) === 0 && num(saved.stpUse) === 0 && num(saved.ptrUse) === 0
+      && num(saved.remain) === 0 && num(saved.stpRemain) === 0 && num(saved.ptrRemain) === 0
+      && !rawCountedIsExplicit && !hasQuickStack;
+  }
+  function getPrevStockParts(iso, item){
+    let stp = num(item.stpStart);
+    let ptr = num(item.ptrStart);
+    const dates = Object.keys(state.records).filter(d => d < iso).sort();
+    dates.forEach(date => {
+      const rec = state.records[date];
+      const saved = rec?.items?.[item.id];
+      if(!saved) return;
+      if(looksLikeAutoZeroCarryBug(saved, stp, ptr)){
+        return; // วันที่ไม่มีการเคลื่อนไหว แต่ข้อมูลเก่าเคยเซฟคงเหลือเป็น 0 ให้ยกยอดเมื่อวานต่อ
+      }
+      let c = saved;
+      if(hasRawInputs(saved) || saved.stpRemain === undefined || saved.ptrRemain === undefined){
+        c = computeItem(item, entryFromSaved(saved), date, rec.stpLoads || 0, rec.ptrLoads || 0, {prevStp:stp, prevPtr:ptr});
+      }
+      if(c.stpRemain !== undefined || c.ptrRemain !== undefined){
+        stp = Math.max(0, num(c.stpRemain));
+        ptr = Math.max(0, num(c.ptrRemain));
+      }else if(c.remain !== undefined){
+        const totalStart = itemTotalStart(item);
+        const ratio = totalStart > 0 ? num(item.stpStart)/totalStart : 1;
+        stp = Math.round(num(c.remain) * ratio);
+        ptr = num(c.remain) - stp;
+      }
+    });
+    return {stp, ptr, total:stp+ptr};
+  }
+  function getPrevSideStock(iso, item, side){
+    const parts = getPrevStockParts(iso, item);
+    return side === 'stp' ? parts.stp : parts.ptr;
+  }
+  function getPrevStock(iso, item){ const parts = getPrevStockParts(iso, item); return parts.total; }
   function getRecord(iso){ return state.records[iso] || null; }
+  function packComputedEntry(raw, computed){
+    const out = Object.assign({}, computed, {
+      rawReceive: raw?.receive ?? '',
+      rawStpReceive: raw?.stpReceive ?? '',
+      rawPtrReceive: raw?.ptrReceive ?? '',
+      rawCounted: raw?.counted ?? ''
+    });
+    ['quickReceiveBase','quickReceiveStack','quickCountedBase','quickCountedStack'].forEach(k => {
+      if(raw && raw[k] !== undefined) out[k] = raw[k];
+    });
+    return out;
+  }
 
-  function splitReceive(item, entry, iso, stpLoads, ptrLoads){
+  function splitReceive(item, entry, iso, stpLoads, ptrLoads, prevOverride=null){
     const hasTotal = !isBlank(entry?.receive);
     const hasStp = !isBlank(entry?.stpReceive);
     const hasPtr = !isBlank(entry?.ptrReceive);
@@ -468,8 +526,8 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     }else if(!hasStp && hasPtr){
       stpReceive = Math.max(0, receive - ptrReceive);
     }else{
-      const prevStp = getPrevSideStock(iso, item, 'stp');
-      const prevPtr = getPrevSideStock(iso, item, 'ptr');
+      const prevStp = prevOverride ? prevOverride.prevStp : getPrevSideStock(iso, item, 'stp');
+      const prevPtr = prevOverride ? prevOverride.prevPtr : getPrevSideStock(iso, item, 'ptr');
       const stockTotal = prevStp + prevPtr;
       let stpRatio = stockTotal > 0 ? prevStp / stockTotal : 0;
       if(stockTotal <= 0){
@@ -482,11 +540,11 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     return {receive, stpReceive, ptrReceive};
   }
 
-  function computeItem(item, entry, iso, stpLoads, ptrLoads){
-    const prevStp = getPrevSideStock(iso, item, 'stp');
-    const prevPtr = getPrevSideStock(iso, item, 'ptr');
+  function computeItem(item, entry, iso, stpLoads, ptrLoads, prevOverride=null){
+    const prevStp = prevOverride ? prevOverride.prevStp : getPrevSideStock(iso, item, 'stp');
+    const prevPtr = prevOverride ? prevOverride.prevPtr : getPrevSideStock(iso, item, 'ptr');
     const prevStock = prevStp + prevPtr;
-    const receiveSplit = splitReceive(item, entry, iso, stpLoads, ptrLoads);
+    const receiveSplit = splitReceive(item, entry, iso, stpLoads, ptrLoads, {prevStp, prevPtr});
     const receive = receiveSplit.receive;
     const stpReceive = receiveSplit.stpReceive;
     const ptrReceive = receiveSplit.ptrReceive;
@@ -613,10 +671,10 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
       const rec = record.items?.[item.id];
       if(rec){
         const set = (id, val) => { const el = $(`#${id}_${item.id}`); if(el) el.value = val ?? ''; };
-        set('receive', rec.receive ?? 0);
-        set('stpReceive', rec.stpReceive ?? '');
-        set('ptrReceive', rec.ptrReceive ?? '');
-        set('counted', rec.counted ?? rec.remain ?? '');
+        set('receive', rec.rawReceive !== undefined ? rec.rawReceive : (rec.receive ?? 0));
+        set('stpReceive', rec.rawStpReceive !== undefined ? rec.rawStpReceive : (rec.stpReceive ?? ''));
+        set('ptrReceive', rec.rawPtrReceive !== undefined ? rec.rawPtrReceive : (rec.ptrReceive ?? ''));
+        set('counted', rec.rawCounted !== undefined ? rec.rawCounted : (rec.counted ?? rec.remain ?? ''));
       }
     });
     renderEntryList();
@@ -626,8 +684,9 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     const entry = readEntryForm();
     const computed = {};
     state.items.forEach(item => {
-      const c = computeItem(item, entry.items[item.id], entry.date, entry.stpLoads, entry.ptrLoads);
-      computed[item.id] = Object.assign({}, entry.items[item.id], c);
+      const raw = entry.items[item.id] || {};
+      const c = computeItem(item, raw, entry.date, entry.stpLoads, entry.ptrLoads);
+      computed[item.id] = packComputedEntry(raw, c);
     });
     state.records[entry.date] = {date:entry.date, stpLoads:entry.stpLoads, ptrLoads:entry.ptrLoads, note:entry.note, items:computed, updatedAt:new Date().toISOString()};
     saveState();
@@ -646,18 +705,20 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
   }
   function latestComputedForDate(date, item){
     const rec = state.records[date];
+    const prev = getPrevStockParts(date, item);
     if(rec?.items?.[item.id]){
       const saved = rec.items[item.id];
-      if(saved.stpRemain === undefined || saved.ptrRemain === undefined){
-        return computeItem(item, saved, date, rec.stpLoads || 0, rec.ptrLoads || 0);
+      if(looksLikeAutoZeroCarryBug(saved, prev.stp, prev.ptr)){
+        return makeCarryForwardComputed(item, prev.stp, prev.ptr);
+      }
+      if(hasRawInputs(saved) || saved.stpRemain === undefined || saved.ptrRemain === undefined){
+        return computeItem(item, entryFromSaved(saved), date, rec.stpLoads || 0, rec.ptrLoads || 0, {prevStp:prev.stp, prevPtr:prev.ptr});
       }
       return saved;
     }
-    const prevStp = getPrevSideStock(date, item, 'stp');
-    const prevPtr = getPrevSideStock(date, item, 'ptr');
-    const prevStock = prevStp + prevPtr;
-    return {prevStock, prevStp, prevPtr, receive:'', stpReceive:'', ptrReceive:'', counted:'', available:prevStock, actualUse:'', stpUse:'', ptrUse:'', remain:prevStock, stpRemain:prevStp, ptrRemain:prevPtr, low: prevStock <= item.min, near: prevStock > item.min && prevStock <= item.min*1.25};
+    return makeCarryForwardComputed(item, prev.stp, prev.ptr);
   }
+
 
   function renderCombinedTable(targetId='combinedTable'){
     const records = monthRecords();
@@ -844,14 +905,19 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
   }
   function getQuickItemEntry(record, item){
     const saved = record.items?.[item.id] || {};
-    return Object.assign({receive:'', stpReceive:'', ptrReceive:'', counted:''}, saved);
+    const entry = Object.assign({receive:'', stpReceive:'', ptrReceive:'', counted:''}, saved);
+    entry.receive = saved.rawReceive !== undefined ? saved.rawReceive : (saved.receive ?? '');
+    entry.stpReceive = saved.rawStpReceive !== undefined ? saved.rawStpReceive : (saved.stpReceive ?? '');
+    entry.ptrReceive = saved.rawPtrReceive !== undefined ? saved.rawPtrReceive : (saved.ptrReceive ?? '');
+    entry.counted = saved.rawCounted !== undefined ? saved.rawCounted : (saved.counted ?? '');
+    return entry;
   }
   function updateComputedQuickItem(iso, item, entry){
     const record = ensureQuickRecord(iso);
     record.stpLoads = Math.max(0, Math.round(num(record.stpLoads)));
     record.ptrLoads = Math.max(0, Math.round(num(record.ptrLoads)));
     const c = computeItem(item, entry, iso, record.stpLoads, record.ptrLoads);
-    record.items[item.id] = Object.assign({}, entry, c);
+    record.items[item.id] = packComputedEntry(entry, c);
     record.updatedAt = new Date().toISOString();
     return record.items[item.id];
   }
@@ -869,13 +935,13 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     const record = ensureQuickRecord(iso);
     const entry = getQuickItemEntry(record, item);
     if(type === 'receive'){
-      if(entry.quickReceiveBase === undefined) entry.quickReceiveBase = isBlank(entry.receive) ? 0 : num(entry.receive);
+      if(entry.quickReceiveBase === undefined) entry.quickReceiveBase = isBlank(entry.receive) ? '' : num(entry.receive);
       entry.quickReceiveStack = num(entry.quickReceiveStack) + amount;
       entry.receive = num(entry.quickReceiveBase) + num(entry.quickReceiveStack);
       entry.stpReceive = '';
       entry.ptrReceive = '';
     }else{
-      if(entry.quickCountedBase === undefined) entry.quickCountedBase = isBlank(entry.counted) ? 0 : num(entry.counted);
+      if(entry.quickCountedBase === undefined) entry.quickCountedBase = isBlank(entry.counted) ? '' : num(entry.counted);
       entry.quickCountedStack = num(entry.quickCountedStack) + amount;
       entry.counted = num(entry.quickCountedBase) + num(entry.quickCountedStack);
     }
@@ -896,13 +962,13 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     const entry = getQuickItemEntry(record, item);
     if(type === 'receive' || type === null){
       entry.quickReceiveStack = 0;
-      entry.receive = entry.quickReceiveBase !== undefined ? num(entry.quickReceiveBase) : 0;
+      entry.receive = entry.quickReceiveBase !== undefined ? entry.quickReceiveBase : '';
       entry.stpReceive = '';
       entry.ptrReceive = '';
     }
     if(type === 'counted' || type === null){
       entry.quickCountedStack = 0;
-      entry.counted = entry.quickCountedBase !== undefined ? num(entry.quickCountedBase) : '';
+      entry.counted = entry.quickCountedBase !== undefined ? entry.quickCountedBase : '';
     }
     updateComputedQuickItem(iso, item, entry);
     saveState();
@@ -920,12 +986,12 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
       const entry = getQuickItemEntry(record, item);
       if(log.type === 'receive'){
         entry.quickReceiveStack = Math.max(0, num(entry.quickReceiveStack) - num(log.amount));
-        entry.receive = num(entry.quickReceiveBase || 0) + num(entry.quickReceiveStack);
+        entry.receive = num(entry.quickReceiveStack) > 0 ? num(entry.quickReceiveBase) + num(entry.quickReceiveStack) : (entry.quickReceiveBase ?? '');
         entry.stpReceive = '';
         entry.ptrReceive = '';
       }else{
         entry.quickCountedStack = Math.max(0, num(entry.quickCountedStack) - num(log.amount));
-        entry.counted = num(entry.quickCountedBase || 0) + num(entry.quickCountedStack);
+        entry.counted = num(entry.quickCountedStack) > 0 ? num(entry.quickCountedBase) + num(entry.quickCountedStack) : (entry.quickCountedBase ?? '');
       }
       updateComputedQuickItem(iso, item, entry);
     }
@@ -942,8 +1008,8 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     state.items.forEach(item => {
       const entry = record.items?.[item.id];
       if(!entry) return;
-      if(entry.quickReceiveBase !== undefined){ entry.receive = num(entry.quickReceiveBase); entry.quickReceiveStack = 0; entry.stpReceive = ''; entry.ptrReceive = ''; }
-      if(entry.quickCountedBase !== undefined){ entry.counted = entry.quickCountedBase === '' ? '' : num(entry.quickCountedBase); entry.quickCountedStack = 0; }
+      if(entry.quickReceiveBase !== undefined){ entry.receive = entry.quickReceiveBase; entry.quickReceiveStack = 0; entry.stpReceive = ''; entry.ptrReceive = ''; }
+      if(entry.quickCountedBase !== undefined){ entry.counted = entry.quickCountedBase; entry.quickCountedStack = 0; }
       updateComputedQuickItem(iso, item, entry);
     });
     record.quickLogs = [];

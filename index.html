@@ -295,11 +295,11 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
   const monthNamesTH = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
   const defaultItems = [
     {id:'paper_roll', name:'กระดาษ แบบม้วน', unit:'Rolls / ม้วน', stpStart:0, ptrStart:0, min:0, stpRate:4.0, ptrRate:3.0},
-    {id:'cable_tie', name:'มัดสายเคเบิล', unit:'Pack / ห่อ', stpStart:0, ptrStart:0, min:0, stpRate:120, ptrRate:100},
+    {id:'cable_tie', name:'มัดสายเคเบิล', unit:'เส้น (เบิกครั้งละ 100)', stpStart:0, ptrStart:0, min:0, stpRate:120, ptrRate:100, issueLot:100},
     {id:'yellow_tape', name:'เทปสีเหลือง', unit:'Rolls', stpStart:0, ptrStart:0, min:0, stpRate:1.5, ptrRate:1.2},
     {id:'masking_tape', name:'เทปกาวย่น สีขาว', unit:'Rolls', stpStart:0, ptrStart:0, min:0, stpRate:1.0, ptrRate:1.0},
     {id:'black_spray', name:'สีสเปรย์ สีดำ', unit:'Cans / กระป๋อง', stpStart:0, ptrStart:0, min:0, stpRate:0.7, ptrRate:0.6},
-    {id:'cover_bag', name:'ถุงคลุม', unit:'50 / ห่อ', stpStart:0, ptrStart:0, min:0, stpRate:55, ptrRate:50},
+    {id:'cover_bag', name:'ถุงคลุม', unit:'ถุง (เบิกครั้งละ 50)', stpStart:0, ptrStart:0, min:0, stpRate:55, ptrRate:50, issueLot:50},
     {id:'spray_remover', name:'น้ำยาลบสีสเปรย์', unit:'Gallons', stpStart:0, ptrStart:0, min:0, stpRate:0.10, ptrRate:0.10},
     {id:'red_nylon_rope', name:'เชือกไนล่อนสีแดง', unit:'Rolls / ม้วน', stpStart:0, ptrStart:0, min:0, stpRate:0.25, ptrRate:0.25},
     {id:'raffia_rope', name:'เชือกฟาง', unit:'Rolls / ม้วน', stpStart:0, ptrStart:0, min:0, stpRate:0.35, ptrRate:0.35},
@@ -354,6 +354,7 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     out.min = num(out.min);
     out.stpRate = num(out.stpRate);
     out.ptrRate = num(out.ptrRate);
+    out.issueLot = Math.max(1, Math.round(num(out.issueLot) || 1));
     return out;
   }
   function mergeItems(items){
@@ -540,6 +541,44 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     return {receive, stpReceive, ptrReceive};
   }
 
+  function issueLotSize(item){
+    if(item?.id === 'cable_tie') return 100;
+    if(item?.id === 'cover_bag') return 50;
+    return Math.max(1, Math.round(num(item?.issueLot) || 1));
+  }
+
+  function splitUseWithIssueLot(item, actualUse, expectedStp, expectedPtr, stpLoads, ptrLoads){
+    if(actualUse <= 0) return {stpUse:0, ptrUse:0};
+    const lot = issueLotSize(item);
+    const totalExpected = expectedStp + expectedPtr;
+    let stpRatio = 0;
+    if(totalExpected > 0){
+      stpRatio = expectedStp / totalExpected;
+    }else if(stpLoads + ptrLoads > 0){
+      stpRatio = stpLoads / (stpLoads + ptrLoads);
+    }
+
+    if(lot <= 1){
+      const stpUse = Math.round(actualUse * stpRatio);
+      return {stpUse, ptrUse:actualUse - stpUse};
+    }
+
+    // มัดสายเคเบิลและถุงคลุมต้องเบิกเป็นล็อตเต็มเท่านั้น
+    // แบ่งจำนวนล็อตตามสัดส่วนงาน STP/PTR แล้วคงยอดรวมให้ตรงกับยอดเบิกจริง
+    const wholeLots = Math.floor((actualUse + 0.0001) / lot);
+    const remainder = Math.max(0, actualUse - wholeLots * lot);
+    const stpLots = Math.max(0, Math.min(wholeLots, Math.round(wholeLots * stpRatio)));
+    let stpUse = stpLots * lot;
+    let ptrUse = (wholeLots - stpLots) * lot;
+
+    // กรณียอดนับจริงมีเศษไม่ครบล็อต ให้เก็บเศษไว้เป็นส่วนต่างของฝั่งที่มีสัดส่วนใช้มากกว่า
+    // โดยยอดเบิกปกติยังคงเป็น 100/50 ต่อครั้งตามกติกาหน้างาน
+    if(remainder > 0){
+      if(stpRatio >= 0.5) stpUse += remainder; else ptrUse += remainder;
+    }
+    return {stpUse, ptrUse};
+  }
+
   function computeItem(item, entry, iso, stpLoads, ptrLoads, prevOverride=null){
     const prevStp = prevOverride ? prevOverride.prevStp : getPrevSideStock(iso, item, 'stp');
     const prevPtr = prevOverride ? prevOverride.prevPtr : getPrevSideStock(iso, item, 'ptr');
@@ -559,19 +598,9 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     const adjustment = counted > available ? counted - available : 0;
     const expectedStp = Math.max(0, stpLoads * num(item.stpRate));
     const expectedPtr = Math.max(0, ptrLoads * num(item.ptrRate));
-    let stpUse = 0, ptrUse = 0;
-    if(actualUse > 0){
-      const totalExpected = expectedStp + expectedPtr;
-      if(totalExpected > 0){
-        stpUse = Math.round(actualUse * expectedStp / totalExpected);
-        ptrUse = actualUse - stpUse;
-      }else if(stpLoads + ptrLoads > 0){
-        stpUse = Math.round(actualUse * stpLoads / (stpLoads + ptrLoads));
-        ptrUse = actualUse - stpUse;
-      }else{
-        ptrUse = actualUse;
-      }
-    }
+    const useSplit = splitUseWithIssueLot(item, actualUse, expectedStp, expectedPtr, stpLoads, ptrLoads);
+    let stpUse = useSplit.stpUse;
+    let ptrUse = useSplit.ptrUse;
     let stpRemain = prevStp + stpReceive - stpUse;
     let ptrRemain = prevPtr + ptrReceive - ptrUse;
     // ปรับเศษ/ส่วนต่างให้ยอดรวมคงเหลือของ STP+PTR เท่ากับยอดที่นับจริงวันนี้เสมอ
@@ -1081,6 +1110,10 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     if(isEmpty) return `<Cell ss:StyleID="${style}"${merge}/>`;
     return `<Cell ss:StyleID="${style}"${merge}><Data ss:Type="${isNumber?'Number':'String'}">${esc(isNumber ? value : String(value))}</Data></Cell>`;
   }
+  function xmlFormulaCell(formula, cachedValue=0, style='Default'){
+    const safeFormula = String(formula || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+    return `<Cell ss:StyleID="${style}" ss:Formula="${safeFormula}"><Data ss:Type="Number">${num(cachedValue)}</Data></Cell>`;
+  }
   function xmlRow(cells, height=null){
     const h = height ? ` ss:Height="${height}"` : '';
     return `<Row${h}>${cells.join('')}</Row>`;
@@ -1137,23 +1170,28 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
       h5.push(xmlCell('', 'Body'), xmlCell('', 'Body'), xmlCell(start, 'SubRemain'));
     });
     rows.push(xmlRow(h5, 18));
+    const reportRemain = Object.fromEntries(state.items.map(item => [item.id, side === 'stp' ? num(item.stpStart) : num(item.ptrStart)]));
     records.forEach(rec => {
       const saved = !!state.records[rec.date];
       const data = [xmlCell(dateText(rec.date), 'DateCell', 'String', 1), xmlCell(saved ? (side==='stp'?num(rec.stpLoads):num(rec.ptrLoads)) : '', 'Body')];
       state.items.forEach(item => {
         const c = latestComputedForDate(rec.date, item);
-        const receive = side === 'stp' ? c.stpReceive : c.ptrReceive;
-        const use = side === 'stp' ? c.stpUse : c.ptrUse;
-        const remain = side === 'stp' ? c.stpRemain : c.ptrRemain;
-        data.push(xmlCell(saved ? num(receive) : '', num(receive)>0 && saved ? 'Receive' : 'Body'), xmlCell(saved ? num(use) : '', 'Body'), xmlCell(num(remain), 'Remain'));
+        const receive = saved ? num(side === 'stp' ? c.stpReceive : c.ptrReceive) : 0;
+        const use = saved ? num(side === 'stp' ? c.stpUse : c.ptrUse) : 0;
+        const remain = reportRemain[item.id] + receive - use;
+        reportRemain[item.id] = remain;
+        data.push(
+          xmlCell(saved ? receive : '', receive > 0 && saved ? 'Receive' : 'Body'),
+          xmlCell(saved ? use : '', 'Body'),
+          // สูตร Excel แบบเดียวกับตัวอย่าง: F18 = F17 + D18 - E18
+          xmlFormulaCell('=R[-1]C+RC[-2]-RC[-1]', remain, 'Remain')
+        );
       });
       rows.push(xmlRow(data, 17));
     });
-    const latestDate = Object.keys(state.records).sort().filter(x => x.slice(0,7) === getMonthKey($('#workDate').value || todayISO())).pop();
     const current = [xmlCell('ยอดคงเหลือ ณ ปัจจุบัน', 'BottomYellow', 'String', 2)];
     state.items.forEach(item => {
-      const c = latestDate ? latestComputedForDate(latestDate, item) : {stpRemain:item.stpStart, ptrRemain:item.ptrStart};
-      current.push(xmlCell(side === 'stp' ? num(c.stpRemain) : num(c.ptrRemain), 'BottomGreen', 'Number', 2));
+      current.push(xmlCell(num(reportRemain[item.id]), 'BottomGreen', 'Number', 2));
     });
     rows.push(xmlRow(current, 18));
     const minRow = [xmlCell('ยอดที่ต้องเติมจากจุดการใช้งาน', 'BottomBlue', 'String', 2)];

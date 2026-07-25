@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Packaging Material Stock - STP / PTR v3.2</title>
+  <title>Packaging Material Stock - STP / PTR v3.3</title>
   <style>
     :root{
       --bg:#f5f8fb;
@@ -129,6 +129,13 @@
     .pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 9px;font-size:12px;font-weight:800;background:#e0f2fe;color:#075985}
     .firebase-pill{background:#ecfeff;color:#155e75;border:1px solid #a5f3fc;padding:7px 10px}
     .small-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+    .month-start-box{border:1px solid #bfdbfe;background:#eff6ff;border-radius:14px;padding:12px;margin:0 0 14px}
+    .month-start-box h3{margin:0 0 9px;font-size:14px;color:#1e3a8a}
+    .month-start-toolbar{display:grid;grid-template-columns:minmax(180px,240px) auto auto;gap:8px;align-items:end;margin-bottom:8px}
+    .month-start-editor-row{display:grid;grid-template-columns:1.5fr .75fr .75fr 1fr;gap:8px;align-items:end;border-top:1px dashed #bfdbfe;padding:8px 0}
+    .month-start-editor-row:first-child{border-top:0}
+    .month-start-editor-row strong{font-size:12px}.month-start-editor-row label span{font-size:11px}
+    .auto-receive-note{color:#0369a1;font-weight:800}
 
     .view-switch{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
     .count-view{display:none}
@@ -146,8 +153,8 @@
     .count-log{margin-top:12px;border:1px dashed #cbd5e1;border-radius:14px;background:#fbfdff;padding:10px}.count-log h3{margin:0 0 8px;font-size:13px}.count-log-list{display:flex;flex-direction:column;gap:6px;max-height:160px;overflow:auto}.count-log-item{font-size:12px;color:#334155;background:white;border:1px solid #e2e8f0;border-radius:10px;padding:7px 9px;display:flex;justify-content:space-between;gap:8px}
     .main-view.hide-view{display:none!important}
     .print-only{display:none}
-    @media (max-width: 1080px){.grid{grid-template-columns:1fr}.summary-cards{grid-template-columns:repeat(2,1fr)}.table-wrap{max-height:62vh}.form-row.four,.stat-editor{grid-template-columns:1fr 1fr}.count-toolbar{grid-template-columns:1fr 1fr}.count-grid{grid-template-columns:1fr}.quick-line button{min-width:105px}}
-    @media (max-width: 640px){header{padding:10px 12px}.title h1{font-size:18px}.actions{width:100%;gap:6px}.actions button,.actions .file-btn,.actions .pill{font-size:12px;padding:8px 9px}.container{margin:10px auto;padding:0 10px 80px}.count-toolbar{grid-template-columns:1fr}.count-header{align-items:stretch}.count-header .actions{width:auto}.count-title h2{font-size:18px}.count-card{border-radius:14px;padding:11px}.count-stats{grid-template-columns:repeat(3,1fr)}.count-stat{padding:7px}.count-stat b{font-size:16px}.quick-line{grid-template-columns:1fr}.quick-line button{width:100%;min-width:0;font-size:15px}.summary-cards{grid-template-columns:1fr}}
+    @media (max-width: 1080px){.grid{grid-template-columns:1fr}.summary-cards{grid-template-columns:repeat(2,1fr)}.table-wrap{max-height:62vh}.form-row.four,.stat-editor,.month-start-editor-row{grid-template-columns:1fr 1fr}.count-toolbar,.month-start-toolbar{grid-template-columns:1fr 1fr}.count-grid{grid-template-columns:1fr}.quick-line button{min-width:105px}}
+    @media (max-width: 640px){header{padding:10px 12px}.title h1{font-size:18px}.actions{width:100%;gap:6px}.actions button,.actions .file-btn,.actions .pill{font-size:12px;padding:8px 9px}.container{margin:10px auto;padding:0 10px 80px}.count-toolbar,.month-start-toolbar,.month-start-editor-row{grid-template-columns:1fr}.count-header{align-items:stretch}.count-header .actions{width:auto}.count-title h2{font-size:18px}.count-card{border-radius:14px;padding:11px}.count-stats{grid-template-columns:repeat(3,1fr)}.count-stat{padding:7px}.count-stat b{font-size:16px}.quick-line{grid-template-columns:1fr}.quick-line button{width:100%;min-width:0;font-size:15px}.summary-cards{grid-template-columns:1fr}}
     @media print{
       body{background:white}.grid,.actions,.tabs,.no-print{display:none!important}.print-only{display:block!important}
       header{position:static;border:0}.container{max-width:none;margin:0;padding:0}.card{box-shadow:none;border:0}.section{display:block!important;padding:0}.table-wrap{overflow:visible;max-height:none;border:0}table{font-size:9px}th,td{padding:3px}.date-col{position:static}th{position:static}
@@ -274,6 +281,17 @@
     </header>
     <div class="content">
       <div class="hint" style="margin-bottom:12px">ตัวอย่าง: ถ้า STP 3 ตู้ และ PTR 4 ตู้ ระบบจะคำนวณสัดส่วนจากค่า “ใช้/ตู้” ของแต่ละรายการ แล้วกระจายยอดเบิกใช้จริงให้สองฝั่ง โดยคงเหลือตรงกับยอดนับวันนี้</div>
+      <div class="month-start-box">
+        <h3>📅 ยอดคงเหลือตั้งต้นรายเดือน</h3>
+        <div class="month-start-toolbar">
+          <label><span>เดือนที่ต้องการตั้งต้นใหม่</span><input type="month" id="monthStartKey"></label>
+          <button class="ghost" id="copyPrevMonthStartBtn">↩️ ดึงยอดยกมาจากเดือนก่อน</button>
+          <button class="danger" id="clearMonthStartBtn">ล้างค่าตั้งต้นเดือนนี้</button>
+        </div>
+        <p class="hint">ปล่อยว่าง = ยกยอดต่ออัตโนมัติจากเดือนก่อน • ใส่ใหม่เมื่อยอดจริงคลาดเคลื่อน โดยสูตรรายวันยังคงเป็น <b>คงเหลือ = เมื่อวาน + รับเข้า - เบิกใช้</b> เหมือนเดิม</p>
+        <div id="monthStartEditor"></div>
+      </div>
+      <h3 style="font-size:14px;margin:0 0 9px">⚙️ ฐานเริ่มระบบ / อัตราใช้ต่อหนึ่งตู้</h3>
       <div id="statEditor"></div>
       <hr style="border:0;border-top:1px solid #e2e8f0;margin:16px 0">
       <div class="form-row">
@@ -336,9 +354,10 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     return `${d.getDate()} ${monthNamesTH[d.getMonth()]} ${y}`;
   };
   const getMonthKey = iso => iso ? iso.slice(0,7) : todayISO().slice(0,7);
+  const firstDayOfMonth = monthKey => `${monthKey}-01`;
 
   function createEmptyState(){
-    return {items: structuredClone(defaultItems), records:{}, settings:{stpName:'STP', ptrName:'PTR'}};
+    return {items: structuredClone(defaultItems), records:{}, monthStarts:{}, settings:{stpName:'STP', ptrName:'PTR'}};
   }
   function itemTotalStart(item){ return num(item.stpStart) + num(item.ptrStart); }
   function normalizeItem(item){
@@ -365,6 +384,7 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     const normalized = s && typeof s === 'object' ? s : createEmptyState();
     normalized.items = mergeItems(normalized.items || []);
     normalized.records = normalized.records || {};
+    normalized.monthStarts = normalized.monthStarts && typeof normalized.monthStarts === 'object' ? normalized.monthStarts : {};
     normalized.settings = Object.assign({stpName:'STP', ptrName:'PTR'}, normalized.settings || {});
     return normalized;
   }
@@ -395,7 +415,7 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     if(!firebaseReady || !firebaseDocRef){ if(showAlert) alert('Firebase ยังไม่พร้อมใช้งาน'); return; }
     try{
       setFirebaseStatus('☁️ Firebase: กำลังบันทึก...');
-      await setDoc(firebaseDocRef, {state: stateForCloud(), schema:'loading-equipment-stock-v3', updatedAt:new Date().toISOString()}, {merge:true});
+      await setDoc(firebaseDocRef, {state: stateForCloud(), schema:'loading-equipment-stock-v3.3', updatedAt:new Date().toISOString()}, {merge:true});
       setFirebaseStatus('☁️ Firebase: บันทึกแล้ว ✅');
       if(showAlert) alert('ซิงก์ Firebase เรียบร้อยแล้ว ✅');
     }catch(err){
@@ -425,7 +445,7 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
         applyCloudState(snap.data().state);
         setFirebaseStatus('☁️ Firebase: โหลดข้อมูลแล้ว ✅');
       }else{
-        await setDoc(firebaseDocRef, {state: stateForCloud(), schema:'loading-equipment-stock-v3', createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()}, {merge:true});
+        await setDoc(firebaseDocRef, {state: stateForCloud(), schema:'loading-equipment-stock-v3.3', createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()}, {merge:true});
         setFirebaseStatus('☁️ Firebase: เริ่มฐานข้อมูลใหม่ ✅');
       }
       onSnapshot(firebaseDocRef, snap => {
@@ -467,11 +487,29 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
       && num(saved.remain) === 0 && num(saved.stpRemain) === 0 && num(saved.ptrRemain) === 0
       && !rawCountedIsExplicit && !hasQuickStack;
   }
-  function getPrevStockParts(iso, item){
+  function getMonthStartOverride(monthKey, item){
+    const saved = state.monthStarts?.[monthKey]?.[item.id];
+    if(!saved || (saved.stp === undefined && saved.ptr === undefined)) return null;
+    return {stp:clamp(saved.stp), ptr:clamp(saved.ptr)};
+  }
+
+  function getPrevStockParts(iso, item, options={}){
     let stp = num(item.stpStart);
     let ptr = num(item.ptrStart);
-    const dates = Object.keys(state.records).filter(d => d < iso).sort();
-    dates.forEach(date => {
+    const recordDates = Object.keys(state.records).filter(d => d < iso);
+    const monthStartDates = Object.keys(state.monthStarts || {}).map(firstDayOfMonth).filter(d => d <= iso);
+    const timeline = [...new Set([...recordDates, ...monthStartDates, iso])].sort();
+    let activeMonth = '';
+    timeline.forEach(date => {
+      const monthKey = getMonthKey(date);
+      if(monthKey !== activeMonth){
+        activeMonth = monthKey;
+        if(monthKey !== options.ignoreMonthStart){
+          const override = getMonthStartOverride(monthKey, item);
+          if(override){ stp = override.stp; ptr = override.ptr; }
+        }
+      }
+      if(date === iso) return;
       const rec = state.records[date];
       const saved = rec?.items?.[item.id];
       if(!saved) return;
@@ -493,6 +531,10 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
       }
     });
     return {stp, ptr, total:stp+ptr};
+  }
+
+  function getCarryIntoMonth(monthKey, item){
+    return getPrevStockParts(firstDayOfMonth(monthKey), item, {ignoreMonthStart:monthKey});
   }
   function getPrevSideStock(iso, item, side){
     const parts = getPrevStockParts(iso, item);
@@ -579,23 +621,52 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     return {stpUse, ptrUse};
   }
 
+  function splitAutoReceive(item, autoReceive, enteredStp, enteredPtr, prevStp, prevPtr, stpLoads, ptrLoads){
+    if(autoReceive <= 0) return {stp:0, ptr:0, source:'none'};
+    let stpRatio = 0.5;
+    let source = 'ยอดคงเหลือเดิม';
+    if(enteredStp > 0 || enteredPtr > 0){
+      const enteredTotal = enteredStp + enteredPtr;
+      stpRatio = enteredTotal > 0 ? enteredStp / enteredTotal : 0.5;
+      source = enteredStp > 0 && enteredPtr <= 0 ? 'รับเข้า STP วันนี้' : enteredPtr > 0 && enteredStp <= 0 ? 'รับเข้า PTR วันนี้' : 'สัดส่วนรับเข้า STP/PTR วันนี้';
+    }else if(stpLoads > 0 || ptrLoads > 0){
+      const expectedStp = stpLoads * num(item.stpRate);
+      const expectedPtr = ptrLoads * num(item.ptrRate);
+      const expectedTotal = expectedStp + expectedPtr;
+      stpRatio = expectedTotal > 0 ? expectedStp / expectedTotal : stpLoads / Math.max(1, stpLoads + ptrLoads);
+      source = stpLoads > 0 && ptrLoads <= 0 ? 'มีงาน STP วันนี้' : ptrLoads > 0 && stpLoads <= 0 ? 'มีงาน PTR วันนี้' : 'สัดส่วนงาน STP/PTR วันนี้';
+    }else{
+      const prevTotal = prevStp + prevPtr;
+      stpRatio = prevTotal > 0 ? prevStp / prevTotal : 0.5;
+    }
+    const stp = Math.round(autoReceive * stpRatio);
+    return {stp, ptr:autoReceive - stp, source};
+  }
+
   function computeItem(item, entry, iso, stpLoads, ptrLoads, prevOverride=null){
     const prevStp = prevOverride ? prevOverride.prevStp : getPrevSideStock(iso, item, 'stp');
     const prevPtr = prevOverride ? prevOverride.prevPtr : getPrevSideStock(iso, item, 'ptr');
     const prevStock = prevStp + prevPtr;
     const receiveSplit = splitReceive(item, entry, iso, stpLoads, ptrLoads, {prevStp, prevPtr});
-    const receive = receiveSplit.receive;
-    const stpReceive = receiveSplit.stpReceive;
-    const ptrReceive = receiveSplit.ptrReceive;
+    const enteredReceive = receiveSplit.receive;
+    const enteredStpReceive = receiveSplit.stpReceive;
+    const enteredPtrReceive = receiveSplit.ptrReceive;
     const countedRaw = entry?.counted;
     const countedIsBlank = isBlank(countedRaw);
     // คงเหลือจริงวันนี้ = ยอดปลายทางที่นับได้จริง และถือว่ารวมรับเข้าแล้ว
-    // ดังนั้นช่องรับเข้าใช้เป็นยอดหักล้าง ไม่เอาไปบวกซ้ำกับคงเหลือ
-    const counted = countedIsBlank ? prevStock + receive : clamp(countedRaw);
+    // ถ้านับจริงมากกว่า เมื่อวาน + รับเข้าที่กรอก ระบบจะถือว่าส่วนเกินคือ “รับเข้าอัตโนมัติ” ของวันนี้
+    // เพื่อไม่ให้ยอดคงเหลือเพิ่มขึ้นโดด ๆ โดยไม่มีที่มาในรายงาน
+    const counted = countedIsBlank ? prevStock + enteredReceive : clamp(countedRaw);
+    const enteredAvailable = prevStock + enteredReceive;
+    const autoReceive = countedIsBlank ? 0 : Math.max(0, counted - enteredAvailable);
+    const autoSplit = splitAutoReceive(item, autoReceive, enteredStpReceive, enteredPtrReceive, prevStp, prevPtr, stpLoads, ptrLoads);
+    const stpReceive = enteredStpReceive + autoSplit.stp;
+    const ptrReceive = enteredPtrReceive + autoSplit.ptr;
+    const receive = stpReceive + ptrReceive;
     const available = prevStock + receive;
     const countedMinusReceive = counted - receive;
     const actualUse = Math.max(0, available - counted);
-    const adjustment = counted > available ? counted - available : 0;
+    const adjustment = 0;
     const expectedStp = Math.max(0, stpLoads * num(item.stpRate));
     const expectedPtr = Math.max(0, ptrLoads * num(item.ptrRate));
     const useSplit = splitUseWithIssueLot(item, actualUse, expectedStp, expectedPtr, stpLoads, ptrLoads);
@@ -614,7 +685,7 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     ptrRemain = Math.max(0, ptrRemain);
     const low = counted <= num(item.min);
     const near = counted > num(item.min) && counted <= num(item.min)*1.25;
-    return {prevStock, prevStp, prevPtr, receive, stpReceive, ptrReceive, counted, countedMinusReceive, available, actualUse, adjustment, expectedStp, expectedPtr, stpUse, ptrUse, remain:counted, stpRemain, ptrRemain, low, near};
+    return {prevStock, prevStp, prevPtr, enteredReceive, enteredStpReceive, enteredPtrReceive, autoReceive, autoStpReceive:autoSplit.stp, autoPtrReceive:autoSplit.ptr, autoReceiveSource:autoSplit.source, receive, stpReceive, ptrReceive, counted, countedMinusReceive, available, actualUse, adjustment, expectedStp, expectedPtr, stpUse, ptrUse, remain:counted, stpRemain, ptrRemain, low, near};
   }
 
   function readEntryForm(){
@@ -681,6 +752,7 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
           <div>เมื่อวานรวม: <b>${fmt(c.prevStock)}</b></div><div>รับเข้ารวม: <b>${fmt(c.receive)}</b></div>
           <div>คงเหลือจริง: <b>${fmt(c.remain)}</b></div><div>เบิกใช้รวม: <b>${fmt(c.actualUse)}</b></div>
           <div>รับเข้าแบ่ง: <b>${esc(state.settings.stpName)} ${fmt(c.stpReceive)}</b> / <b>${esc(state.settings.ptrName)} ${fmt(c.ptrReceive)}</b></div><div>สูตร: <b>เมื่อวาน + รับเข้า - คงเหลือ</b></div>
+          ${c.autoReceive>0 ? `<div class="auto-receive-note">รับเข้าอัตโนมัติจากยอดนับเกิน: <b>${fmt(c.autoReceive)}</b></div><div class="auto-receive-note">แบ่ง ${esc(state.settings.stpName)} ${fmt(c.autoStpReceive)} / ${esc(state.settings.ptrName)} ${fmt(c.autoPtrReceive)} • ${esc(c.autoReceiveSource)}</div>` : ''}
           <div>เบิก ${esc(state.settings.stpName)}: <b>${fmt(c.stpUse)}</b> → เหลือ <b>${fmt(c.stpRemain)}</b></div><div>เบิก ${esc(state.settings.ptrName)}: <b>${fmt(c.ptrUse)}</b> → เหลือ <b>${fmt(c.ptrRemain)}</b></div>
           <div>Min รวม: <b>${fmt(item.min)}</b></div><div>สถานะ: ${status}</div>
         </div>
@@ -776,14 +848,19 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
       row += `</tr>`;
       return row;
     }).join('');
-    const latestDate = Object.keys(state.records).sort().filter(d => d.slice(0,7) === getMonthKey($('#workDate').value || todayISO())).pop();
+    const currentMonthKey = getMonthKey($('#workDate').value || todayISO());
+    const latestDate = Object.keys(state.records).sort().filter(d => d.slice(0,7) === currentMonthKey).pop();
+    const balanceDate = latestDate || firstDayOfMonth(currentMonthKey);
     let footer = `<tr><td class="bottom-yellow left" colspan="3">ยอดคงเหลือ ณ ปัจจุบัน</td>`;
     state.items.forEach(item => {
-      const c = latestDate ? latestComputedForDate(latestDate, item) : {remain:itemTotalStart(item), stpRemain:item.stpStart, ptrRemain:item.ptrStart};
+      const c = latestComputedForDate(balanceDate, item);
       footer += `<td class="bottom-green" colspan="7">รวม ${fmt(c.remain)} / ${esc(state.settings.stpName)} ${fmt(c.stpRemain)} / ${esc(state.settings.ptrName)} ${fmt(c.ptrRemain)}</td>`;
     });
-    footer += `</tr><tr><td class="bottom-cyan left" colspan="3">ยอดตั้งต้น STP / PTR / Min</td>`;
-    state.items.forEach(item => footer += `<td class="bottom-green" colspan="7">${fmt(item.stpStart)} / ${fmt(item.ptrStart)} / Min ${fmt(item.min)}</td>`);
+    footer += `</tr><tr><td class="bottom-cyan left" colspan="3">ยอดตั้งต้นเดือนนี้ STP / PTR / Min</td>`;
+    state.items.forEach(item => {
+      const opening = getPrevStockParts(firstDayOfMonth(currentMonthKey), item);
+      footer += `<td class="bottom-green" colspan="7">${fmt(opening.stp)} / ${fmt(opening.ptr)} / Min ${fmt(item.min)}</td>`;
+    });
     footer += `</tr>`;
     $(`#${targetId}`).innerHTML = `<thead>${h1}${h2}${h3}</thead><tbody>${body}${footer}</tbody>`;
   }
@@ -820,15 +897,16 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     const records = Object.values(state.records).sort((a,b)=>a.date.localeCompare(b.date));
     const monthKey = getMonthKey($('#workDate').value || todayISO());
     const month = records.filter(r => r.date.slice(0,7) === monthKey);
-    const latestDate = records.length ? records[records.length-1].date : null;
+    const latestDate = month.length ? month[month.length-1].date : firstDayOfMonth(monthKey);
     let lowCount = 0;
     let h = `<tr><th>รายการ</th><th>หน่วย</th><th>รวมเหลือล่าสุด</th><th>${esc(state.settings.stpName)} เหลือ</th><th>${esc(state.settings.ptrName)} เหลือ</th><th>Min</th><th>สถานะ</th><th>ใช้รวมเดือนนี้</th><th>${esc(state.settings.stpName)}</th><th>${esc(state.settings.ptrName)}</th><th>รับเข้าเดือนนี้</th></tr>`;
     let body = state.items.map(item => {
-      const latest = latestDate ? latestComputedForDate(latestDate, item) : {remain:itemTotalStart(item), stpRemain:item.stpStart, ptrRemain:item.ptrStart, low:itemTotalStart(item)<=item.min, near:itemTotalStart(item)>item.min&&itemTotalStart(item)<=item.min*1.25};
-      const useSum = month.reduce((s,r)=>s+num(r.items?.[item.id]?.actualUse),0);
-      const stpSum = month.reduce((s,r)=>s+num(r.items?.[item.id]?.stpUse),0);
-      const ptrSum = month.reduce((s,r)=>s+num(r.items?.[item.id]?.ptrUse),0);
-      const recSum = month.reduce((s,r)=>s+num(r.items?.[item.id]?.receive),0);
+      const latest = latestComputedForDate(latestDate, item);
+      const monthComputed = month.map(r => latestComputedForDate(r.date, item));
+      const useSum = monthComputed.reduce((s,c)=>s+num(c.actualUse),0);
+      const stpSum = monthComputed.reduce((s,c)=>s+num(c.stpUse),0);
+      const ptrSum = monthComputed.reduce((s,c)=>s+num(c.ptrUse),0);
+      const recSum = monthComputed.reduce((s,c)=>s+num(c.receive),0);
       if(latest.low) lowCount++;
       const status = latest.low ? '<span class="status-low">ต้องเติม</span>' : latest.near ? '<span class="status-mid">ใกล้ขั้นต่ำ</span>' : '<span class="status-good">ปกติ</span>';
       return `<tr><td class="left"><b>${esc(item.name)}</b></td><td>${esc(item.unit)}</td><td class="right ${latest.low?'warn-cell':latest.near?'bottom-yellow':'ok-cell'}">${fmt(latest.remain)}</td><td class="right">${fmt(latest.stpRemain)}</td><td class="right">${fmt(latest.ptrRemain)}</td><td class="right">${fmt(item.min)}</td><td>${status}</td><td class="right">${fmt(useSum)}</td><td class="right">${fmt(stpSum)}</td><td class="right">${fmt(ptrSum)}</td><td class="right">${fmt(recSum)}</td></tr>`;
@@ -841,11 +919,12 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
   }
 
   function renderLowTable(){
-    const records = Object.values(state.records).sort((a,b)=>a.date.localeCompare(b.date));
-    const latestDate = records.length ? records[records.length-1].date : null;
+    const monthKey = getMonthKey($('#workDate').value || todayISO());
+    const records = Object.values(state.records).filter(r => r.date.slice(0,7) === monthKey).sort((a,b)=>a.date.localeCompare(b.date));
+    const latestDate = records.length ? records[records.length-1].date : firstDayOfMonth(monthKey);
     let h = `<tr><th>รายการ</th><th>รวมเหลือล่าสุด</th><th>${esc(state.settings.stpName)} เหลือ</th><th>${esc(state.settings.ptrName)} เหลือ</th><th>Min</th><th>แนะนำ</th><th>สถิติ STP/ตู้</th><th>สถิติ PTR/ตู้</th></tr>`;
     let rows = state.items.map(item => {
-      const c = latestDate ? latestComputedForDate(latestDate, item) : {remain:itemTotalStart(item), stpRemain:item.stpStart, ptrRemain:item.ptrStart};
+      const c = latestComputedForDate(latestDate, item);
       const need = Math.max(0, num(item.min)*2 - num(c.remain));
       const status = num(c.remain) <= num(item.min) ? 'ควรสั่ง/รับเข้าเพิ่ม' : num(c.remain) <= num(item.min)*1.25 ? 'เริ่มเช็คของสำรอง' : 'ยังพอใช้';
       return {item,c,need,status};
@@ -865,18 +944,54 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     $('#printTitle').textContent = `Packaging Material - สำหรับโหลดงานออก เดือน ${monthNamesTH[d.getMonth()]} ${year}`;
   }
 
+  function renderMonthStartEditor(){
+    const monthKey = $('#monthStartKey')?.value || getMonthKey($('#workDate').value || todayISO());
+    if($('#monthStartKey')) $('#monthStartKey').value = monthKey;
+    const savedMonth = state.monthStarts?.[monthKey] || {};
+    $('#monthStartEditor').innerHTML = state.items.map(item => {
+      const saved = savedMonth[item.id];
+      const carry = getCarryIntoMonth(monthKey, item);
+      return `<div class="month-start-editor-row">
+        <strong>${esc(item.name)}<br><span class="mini">${esc(item.unit)}</span></strong>
+        <label><span>ตั้งต้น ${esc(state.settings.stpName)}</span><input type="number" min="0" step="1" id="monthStp_${item.id}" value="${saved ? esc(saved.stp) : ''}" placeholder="ยกมา ${fmt(carry.stp)}"></label>
+        <label><span>ตั้งต้น ${esc(state.settings.ptrName)}</span><input type="number" min="0" step="1" id="monthPtr_${item.id}" value="${saved ? esc(saved.ptr) : ''}" placeholder="ยกมา ${fmt(carry.ptr)}"></label>
+        <div class="mini">ถ้าปล่อยว่าง: ยกมา ${esc(state.settings.stpName)} <b>${fmt(carry.stp)}</b> / ${esc(state.settings.ptrName)} <b>${fmt(carry.ptr)}</b></div>
+      </div>`;
+    }).join('');
+    bindCommitInputs($('#monthStartEditor'));
+  }
   function renderSettings(){
     $('#stpName').value = state.settings.stpName || 'STP';
     $('#ptrName').value = state.settings.ptrName || 'PTR';
+    $('#monthStartKey').value = getMonthKey($('#workDate').value || todayISO());
+    renderMonthStartEditor();
     $('#statEditor').innerHTML = state.items.map(item => `<div class="stat-editor">
       <strong>${esc(item.name)}<br><span class="mini">${esc(item.unit)}</span></strong>
-      <label><span>ตั้งต้น ${esc(state.settings.stpName)}</span><input type="number" step="1" id="stpStart_${item.id}" value="${esc(item.stpStart)}"></label>
-      <label><span>ตั้งต้น ${esc(state.settings.ptrName)}</span><input type="number" step="1" id="ptrStart_${item.id}" value="${esc(item.ptrStart)}"></label>
+      <label><span>ฐานระบบ ${esc(state.settings.stpName)}</span><input type="number" step="1" id="stpStart_${item.id}" value="${esc(item.stpStart)}"></label>
+      <label><span>ฐานระบบ ${esc(state.settings.ptrName)}</span><input type="number" step="1" id="ptrStart_${item.id}" value="${esc(item.ptrStart)}"></label>
       <label><span>Min รวม</span><input type="number" step="1" id="min_${item.id}" value="${esc(item.min)}"></label>
       <label><span>STP / ตู้</span><input type="number" step="0.01" id="stpRate_${item.id}" value="${esc(item.stpRate)}"></label>
       <label><span>PTR / ตู้</span><input type="number" step="0.01" id="ptrRate_${item.id}" value="${esc(item.ptrRate)}"></label>
     </div>`).join('');
     bindCommitInputs($('#statEditor'));
+  }
+  function copyCarryToMonthStart(){
+    const monthKey = $('#monthStartKey').value || getMonthKey($('#workDate').value || todayISO());
+    state.items.forEach(item => {
+      const carry = getCarryIntoMonth(monthKey, item);
+      const stp = $(`#monthStp_${item.id}`), ptr = $(`#monthPtr_${item.id}`);
+      if(stp) stp.value = carry.stp;
+      if(ptr) ptr.value = carry.ptr;
+    });
+  }
+  function clearMonthStart(){
+    const monthKey = $('#monthStartKey').value || getMonthKey($('#workDate').value || todayISO());
+    if(!confirm(`ล้างยอดตั้งต้นของเดือน ${monthKey} แล้วกลับไปยกยอดอัตโนมัติจากเดือนก่อนใช่ไหม?`)) return;
+    delete state.monthStarts[monthKey];
+    saveState();
+    renderMonthStartEditor();
+    renderEntryList();
+    renderAll();
   }
   function saveSettings(){
     state.settings.stpName = $('#stpName').value.trim() || 'STP';
@@ -888,10 +1003,22 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
       stpRate: num($(`#stpRate_${item.id}`).value),
       ptrRate: num($(`#ptrRate_${item.id}`).value),
     })));
+    const monthKey = $('#monthStartKey').value || getMonthKey($('#workDate').value || todayISO());
+    const monthData = {};
+    state.items.forEach(item => {
+      const stpRaw = $(`#monthStp_${item.id}`)?.value ?? '';
+      const ptrRaw = $(`#monthPtr_${item.id}`)?.value ?? '';
+      if(!isBlank(stpRaw) || !isBlank(ptrRaw)){
+        const carry = getCarryIntoMonth(monthKey, item);
+        monthData[item.id] = {stp:isBlank(stpRaw) ? carry.stp : clamp(stpRaw), ptr:isBlank(ptrRaw) ? carry.ptr : clamp(ptrRaw)};
+      }
+    });
+    if(Object.keys(monthData).length) state.monthStarts[monthKey] = monthData; else delete state.monthStarts[monthKey];
     saveState();
     renderEntryList();
     renderAll();
-    alert('บันทึกตั้งค่าแล้ว ✅');
+    renderMonthStartEditor();
+    alert('บันทึกตั้งค่าและยอดตั้งต้นรายเดือนแล้ว ✅');
   }
 
   function clearEntry(){
@@ -1081,6 +1208,7 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
         </div>
         <div class="calc-line">
           <div>เมื่อวาน: <b>${fmt(c.prevStock)}</b></div><div>รับเข้ารวมวันนี้: <b>${fmt(c.receive)}</b></div>
+          ${c.autoReceive>0 ? `<div class="auto-receive-note">รับเข้าอัตโนมัติ: <b>${fmt(c.autoReceive)}</b></div><div class="auto-receive-note">${esc(c.autoReceiveSource)}</div>` : ''}
           <div>คงเหลือจริง: <b>${fmt(c.remain)}</b></div><div>สถานะ: ${quickStatusText(c, item)}</div>
         </div>
         <div class="small-actions"><button class="quick-reset" data-reset-type="counted" data-item-id="${esc(item.id)}">รีเซ็ตคงเหลือ</button><button class="quick-reset" data-reset-type="receive" data-item-id="${esc(item.id)}">รีเซ็ตรับเข้า</button></div>
@@ -1164,13 +1292,18 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
       h4.push(xmlCell('รับเข้า', 'SubReceive'), xmlCell('เบิกใช้', 'SubUse'), xmlCell(remainText, 'SubRemain'));
     });
     rows.push(xmlRow(h4, 20));
+    const reportMonthKey = getMonthKey($('#workDate').value || todayISO());
     const h5 = [xmlCell('ยอดตั้งต้นคงเหลือ', 'LeftHeader', 'String', 2)];
     state.items.forEach(item => {
-      const start = side === 'stp' ? num(item.stpStart) : num(item.ptrStart);
+      const opening = getPrevStockParts(firstDayOfMonth(reportMonthKey), item);
+      const start = side === 'stp' ? opening.stp : opening.ptr;
       h5.push(xmlCell('', 'Body'), xmlCell('', 'Body'), xmlCell(start, 'SubRemain'));
     });
     rows.push(xmlRow(h5, 18));
-    const reportRemain = Object.fromEntries(state.items.map(item => [item.id, side === 'stp' ? num(item.stpStart) : num(item.ptrStart)]));
+    const reportRemain = Object.fromEntries(state.items.map(item => {
+      const opening = getPrevStockParts(firstDayOfMonth(reportMonthKey), item);
+      return [item.id, side === 'stp' ? opening.stp : opening.ptr];
+    }));
     records.forEach(rec => {
       const saved = !!state.records[rec.date];
       const data = [xmlCell(dateText(rec.date), 'DateCell', 'String', 1), xmlCell(saved ? (side==='stp'?num(rec.stpLoads):num(rec.ptrLoads)) : '', 'Body')];
@@ -1283,6 +1416,9 @@ ${sheets.join('\n')}
     $('#openSettingBtn').addEventListener('click', () => { renderSettings(); $('#settingDrawer').classList.add('open'); });
     $('#closeSettingBtn').addEventListener('click', () => $('#settingDrawer').classList.remove('open'));
     $('#saveSettingBtn').addEventListener('click', saveSettings);
+    $('#monthStartKey').addEventListener('change', renderMonthStartEditor);
+    $('#copyPrevMonthStartBtn').addEventListener('click', copyCarryToMonthStart);
+    $('#clearMonthStartBtn').addEventListener('click', clearMonthStart);
     $('#settingDrawer').addEventListener('click', e => { if(e.target.id === 'settingDrawer') $('#settingDrawer').classList.remove('open'); });
     $('#resetAllBtn').addEventListener('click', () => {
       if(confirm('ต้องการลบข้อมูลทั้งหมดและเริ่มฐานข้อมูลเปล่าจริงไหม?')){

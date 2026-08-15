@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Packaging Material Stock - STP / PTR v3.3</title>
+  <title>Packaging Material Stock - STP / PTR v3.5</title>
   <style>
     :root{
       --bg:#f5f8fb;
@@ -136,6 +136,9 @@
     .month-start-editor-row:first-child{border-top:0}
     .month-start-editor-row strong{font-size:12px}.month-start-editor-row label span{font-size:11px}
     .auto-receive-note{color:#0369a1;font-weight:800}
+    .status-error{color:#b91c1c;font-weight:900}
+    .entry-item.data-error{border:2px solid #ef4444;background:#fff7f7}
+    .data-error-note{grid-column:1/-1;color:#991b1b;background:#fee2e2;border:1px solid #fecaca;border-radius:9px;padding:7px 9px;font-weight:900;white-space:normal;line-height:1.45}
 
     .view-switch{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
     .count-view{display:none}
@@ -205,7 +208,7 @@
           <button class="ghost" id="fillYesterdayBtn">↩️ ใส่ยอดนับวันนี้ = ยอดเมื่อวาน</button>
           <button class="ghost" id="clearEntryBtn">🧹 ล้างฟอร์ม</button>
         </div>
-        <p class="hint">วิธีคิดใหม่: ให้ยึด <b>ยอดคงเหลือจริงที่นับได้</b> เป็นหลักเสมอ ✅ ยอดคงเหลือนี้ถือว่า <b>รวมของรับเข้าแล้ว</b> ส่วนช่อง <b>รับเข้า</b> เอาไว้หักล้างในสูตร <b>เบิกใช้ = ยอดเมื่อวาน + รับเข้า - คงเหลือจริง</b> เพื่อให้ตารางตรงกับยอดคงเหลือเท่านั้น</p>
+        <p class="hint">วิธีคิดใหม่: ให้ยึด <b>ยอดคงเหลือจริงที่นับได้</b> เป็นหลักเสมอ ✅ ยอดคงเหลือนี้ถือว่า <b>รวมของรับเข้าแล้ว</b> ส่วนช่อง <b>รับเข้า</b> เอาไว้หักล้างในสูตร <b>เบิกใช้จริง = ยอดเมื่อวาน + รับเข้า - คงเหลือจริง</b> • แม้วันนี้ <b>ไม่มีตู้โหลด</b> แต่ถ้ายอดนับลดลง ระบบยังต้องลงเป็น <b>เบิกใช้จริง</b> เพราะอาจหยิบไปเตรียมงานวันถัดไป • จำนวนตู้มีไว้ช่วยแบ่งว่าเป็น STP/PTR เท่านั้น ไม่ได้เป็นเงื่อนไขว่ามีการเบิกหรือไม่</p>
         <hr style="border:0;border-top:1px solid #e2e8f0;margin:12px 0">
         <div id="entryList" class="entry-list"></div>
       </div>
@@ -415,7 +418,7 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     if(!firebaseReady || !firebaseDocRef){ if(showAlert) alert('Firebase ยังไม่พร้อมใช้งาน'); return; }
     try{
       setFirebaseStatus('☁️ Firebase: กำลังบันทึก...');
-      await setDoc(firebaseDocRef, {state: stateForCloud(), schema:'loading-equipment-stock-v3.3', updatedAt:new Date().toISOString()}, {merge:true});
+      await setDoc(firebaseDocRef, {state: stateForCloud(), schema:'loading-equipment-stock-v3.5', updatedAt:new Date().toISOString()}, {merge:true});
       setFirebaseStatus('☁️ Firebase: บันทึกแล้ว ✅');
       if(showAlert) alert('ซิงก์ Firebase เรียบร้อยแล้ว ✅');
     }catch(err){
@@ -445,7 +448,7 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
         applyCloudState(snap.data().state);
         setFirebaseStatus('☁️ Firebase: โหลดข้อมูลแล้ว ✅');
       }else{
-        await setDoc(firebaseDocRef, {state: stateForCloud(), schema:'loading-equipment-stock-v3.3', createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()}, {merge:true});
+        await setDoc(firebaseDocRef, {state: stateForCloud(), schema:'loading-equipment-stock-v3.5', createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()}, {merge:true});
         setFirebaseStatus('☁️ Firebase: เริ่มฐานข้อมูลใหม่ ✅');
       }
       onSnapshot(firebaseDocRef, snap => {
@@ -589,35 +592,48 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     return Math.max(1, Math.round(num(item?.issueLot) || 1));
   }
 
-  function splitUseWithIssueLot(item, actualUse, expectedStp, expectedPtr, stpLoads, ptrLoads){
+  function splitUseWithIssueLot(item, actualUse, expectedStp, expectedPtr, stpLoads, ptrLoads, stpAvailable, ptrAvailable){
     if(actualUse <= 0) return {stpUse:0, ptrUse:0};
-    const lot = issueLotSize(item);
+
+    // "ยอดเบิกจริง" มาจากผลต่างของสต็อกเสมอ ไม่ผูกกับจำนวนตู้ของวันนี้
+    // จำนวนตู้/อัตราใช้มีหน้าที่เพียงช่วยเดาว่าของถูกหยิบจากฝั่ง STP หรือ PTR มากกว่ากัน
+    const safeStpAvailable = Math.max(0, num(stpAvailable));
+    const safePtrAvailable = Math.max(0, num(ptrAvailable));
+    const totalAvailable = safeStpAvailable + safePtrAvailable;
     const totalExpected = expectedStp + expectedPtr;
-    let stpRatio = 0;
+    let stpRatio = 0.5;
+
     if(totalExpected > 0){
       stpRatio = expectedStp / totalExpected;
     }else if(stpLoads + ptrLoads > 0){
       stpRatio = stpLoads / (stpLoads + ptrLoads);
+    }else if(totalAvailable > 0){
+      // ไม่มีโหลดวันนี้ก็ยังมีการเบิกได้ เช่น หยิบของไปเตรียมงานพรุ่งนี้
+      // กรณีไม่มีหลักฐานจากจำนวนตู้ ให้ยึดสัดส่วนของที่มีอยู่จริงใน STP/PTR
+      stpRatio = safeStpAvailable / totalAvailable;
     }
+
+    const lot = issueLotSize(item);
+    let preferredStpUse = 0;
 
     if(lot <= 1){
-      const stpUse = Math.round(actualUse * stpRatio);
-      return {stpUse, ptrUse:actualUse - stpUse};
+      preferredStpUse = Math.round(actualUse * stpRatio);
+    }else{
+      // รักษาพฤติกรรมการแบ่งล็อตเดิม แต่ยอดรวมที่เบิกต้องเท่ากับ actualUse เสมอ
+      const wholeLots = Math.floor((actualUse + 0.0001) / lot);
+      const remainder = Math.max(0, actualUse - wholeLots * lot);
+      const stpLots = Math.max(0, Math.min(wholeLots, Math.round(wholeLots * stpRatio)));
+      preferredStpUse = stpLots * lot;
+      if(remainder > 0 && stpRatio >= 0.5) preferredStpUse += remainder;
     }
 
-    // มัดสายเคเบิลและถุงคลุมต้องเบิกเป็นล็อตเต็มเท่านั้น
-    // แบ่งจำนวนล็อตตามสัดส่วนงาน STP/PTR แล้วคงยอดรวมให้ตรงกับยอดเบิกจริง
-    const wholeLots = Math.floor((actualUse + 0.0001) / lot);
-    const remainder = Math.max(0, actualUse - wholeLots * lot);
-    const stpLots = Math.max(0, Math.min(wholeLots, Math.round(wholeLots * stpRatio)));
-    let stpUse = stpLots * lot;
-    let ptrUse = (wholeLots - stpLots) * lot;
+    // ห้ามลงเบิกให้ฝั่งที่ไม่มีของจนติดลบ แล้วค่อยย้ายคงเหลือกลับทีหลัง
+    // บังคับให้ STP/PTR ใช้ได้ไม่เกินของที่แต่ละฝั่งมีจริง และยอดรวมยังเท่ากับ actualUse
+    const minStpUse = Math.max(0, actualUse - safePtrAvailable);
+    const maxStpUse = Math.min(actualUse, safeStpAvailable);
+    const stpUse = Math.max(minStpUse, Math.min(maxStpUse, preferredStpUse));
+    const ptrUse = actualUse - stpUse;
 
-    // กรณียอดนับจริงมีเศษไม่ครบล็อต ให้เก็บเศษไว้เป็นส่วนต่างของฝั่งที่มีสัดส่วนใช้มากกว่า
-    // โดยยอดเบิกปกติยังคงเป็น 100/50 ต่อครั้งตามกติกาหน้างาน
-    if(remainder > 0){
-      if(stpRatio >= 0.5) stpUse += remainder; else ptrUse += remainder;
-    }
     return {stpUse, ptrUse};
   }
 
@@ -641,6 +657,34 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     }
     const stp = Math.round(autoReceive * stpRatio);
     return {stp, ptr:autoReceive - stp, source};
+  }
+
+  function validateComputedStock(item, c){
+    const errors = [];
+    const eps = 0.0001;
+    const stpAvailable = Math.max(0, num(c.prevStp) + num(c.stpReceive));
+    const ptrAvailable = Math.max(0, num(c.prevPtr) + num(c.ptrReceive));
+    const totalAvailable = stpAvailable + ptrAvailable;
+    const actualUse = Math.max(0, num(c.actualUse));
+    const stpUse = Math.max(0, num(c.stpUse));
+    const ptrUse = Math.max(0, num(c.ptrUse));
+
+    if(actualUse > totalAvailable + eps){
+      errors.push(`เบิกใช้รวม ${fmt(actualUse)} เกินยอดที่มีจริง ${fmt(totalAvailable)}`);
+    }
+    if(stpUse > stpAvailable + eps){
+      errors.push(`${state.settings.stpName} เบิก ${fmt(stpUse)} เกินยอดที่มี ${fmt(stpAvailable)}`);
+    }
+    if(ptrUse > ptrAvailable + eps){
+      errors.push(`${state.settings.ptrName} เบิก ${fmt(ptrUse)} เกินยอดที่มี ${fmt(ptrAvailable)}`);
+    }
+    if(stpUse + ptrUse > actualUse + eps || Math.abs((stpUse + ptrUse) - actualUse) > eps){
+      errors.push(`ยอดเบิกแยกฝั่ง ${fmt(stpUse + ptrUse)} ไม่ตรงกับยอดเบิกจริง ${fmt(actualUse)}`);
+    }
+    if(num(c.stpRemain) < -eps || num(c.ptrRemain) < -eps || num(c.remain) < -eps){
+      errors.push('ยอดคงเหลือติดลบ');
+    }
+    return errors;
   }
 
   function computeItem(item, entry, iso, stpLoads, ptrLoads, prevOverride=null){
@@ -669,23 +713,31 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     const adjustment = 0;
     const expectedStp = Math.max(0, stpLoads * num(item.stpRate));
     const expectedPtr = Math.max(0, ptrLoads * num(item.ptrRate));
-    const useSplit = splitUseWithIssueLot(item, actualUse, expectedStp, expectedPtr, stpLoads, ptrLoads);
-    let stpUse = useSplit.stpUse;
-    let ptrUse = useSplit.ptrUse;
-    let stpRemain = prevStp + stpReceive - stpUse;
-    let ptrRemain = prevPtr + ptrReceive - ptrUse;
-    // ปรับเศษ/ส่วนต่างให้ยอดรวมคงเหลือของ STP+PTR เท่ากับยอดที่นับจริงวันนี้เสมอ
-    let drift = counted - (stpRemain + ptrRemain);
-    if(Math.abs(drift) > 0.0001){
-      if(expectedPtr >= expectedStp) ptrRemain += drift; else stpRemain += drift;
-    }
-    if(stpRemain < 0){ ptrRemain += stpRemain; stpRemain = 0; }
-    if(ptrRemain < 0){ stpRemain += ptrRemain; ptrRemain = 0; }
-    stpRemain = Math.max(0, stpRemain);
-    ptrRemain = Math.max(0, ptrRemain);
+    const stpAvailableBeforeUse = prevStp + stpReceive;
+    const ptrAvailableBeforeUse = prevPtr + ptrReceive;
+    const useSplit = splitUseWithIssueLot(item, actualUse, expectedStp, expectedPtr, stpLoads, ptrLoads, stpAvailableBeforeUse, ptrAvailableBeforeUse);
+    const stpUse = useSplit.stpUse;
+    const ptrUse = useSplit.ptrUse;
+    const stpRemain = prevStp + stpReceive - stpUse;
+    const ptrRemain = prevPtr + ptrReceive - ptrUse;
+
+    // ห้ามแก้ยอดติดลบด้วยการโยกข้ามฝั่งเงียบ ๆ เพราะจะทำให้รายงานสะสมเพี้ยน
+    // คณิตศาสตร์ปกติต้องได้: STP+PTR คงเหลือรวม = ยอดนับจริงเสมอ
+    const drift = counted - (stpRemain + ptrRemain);
     const low = counted <= num(item.min);
     const near = counted > num(item.min) && counted <= num(item.min)*1.25;
-    return {prevStock, prevStp, prevPtr, enteredReceive, enteredStpReceive, enteredPtrReceive, autoReceive, autoStpReceive:autoSplit.stp, autoPtrReceive:autoSplit.ptr, autoReceiveSource:autoSplit.source, receive, stpReceive, ptrReceive, counted, countedMinusReceive, available, actualUse, adjustment, expectedStp, expectedPtr, stpUse, ptrUse, remain:counted, stpRemain, ptrRemain, low, near};
+    const result = {prevStock, prevStp, prevPtr, enteredReceive, enteredStpReceive, enteredPtrReceive, autoReceive, autoStpReceive:autoSplit.stp, autoPtrReceive:autoSplit.ptr, autoReceiveSource:autoSplit.source, receive, stpReceive, ptrReceive, counted, countedMinusReceive, available, actualUse, adjustment, expectedStp, expectedPtr, stpUse, ptrUse, remain:counted, stpRemain, ptrRemain, low, near};
+    const inputErrors = [];
+    if(!countedIsBlank && num(countedRaw) < 0) inputErrors.push('คงเหลือจริงห้ามติดลบ');
+    if(!isBlank(entry?.receive) && num(entry.receive) < 0) inputErrors.push('รับเข้ารวมห้ามติดลบ');
+    if(!isBlank(entry?.stpReceive) && num(entry.stpReceive) < 0) inputErrors.push(`รับเข้า ${state.settings.stpName} ห้ามติดลบ`);
+    if(!isBlank(entry?.ptrReceive) && num(entry.ptrReceive) < 0) inputErrors.push(`รับเข้า ${state.settings.ptrName} ห้ามติดลบ`);
+    if(Math.abs(drift) > 0.0001) inputErrors.push(`ยอดคงเหลือรวมคลาดเคลื่อน ${fmt(Math.abs(drift))}`);
+    const dataErrors = [...inputErrors, ...validateComputedStock(item, result)];
+    result.dataErrors = dataErrors;
+    result.dataError = dataErrors.join(' • ');
+    result.invalid = dataErrors.length > 0;
+    return result;
   }
 
   function readEntryForm(){
@@ -739,8 +791,8 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     const html = state.items.map(item => {
       const entry = currentEntry.items[item.id] || {receive:'',stpReceive:'',ptrReceive:'',counted:''};
       const c = computeItem(item, entry, iso, stpLoads, ptrLoads);
-      const status = c.low ? `<span class="status-low">ต่ำกว่า Min</span>` : c.near ? `<span class="status-mid">ใกล้ Min</span>` : `<span class="status-good">พอใช้</span>`;
-      return `<div class="entry-item">
+      const status = c.invalid ? `<span class="status-error">❌ ข้อมูลผิดพลาด</span>` : c.low ? `<span class="status-low">ต่ำกว่า Min</span>` : c.near ? `<span class="status-mid">ใกล้ Min</span>` : `<span class="status-good">พอใช้</span>`;
+      return `<div class="entry-item${c.invalid?' data-error':''}">
         <h3><span>${esc(item.name)}</span><span class="tag">${esc(item.unit)}</span></h3>
         <div class="form-row four">
           <label><span>รับเข้ารวม</span><input type="number" min="0" step="1" id="receive_${item.id}" value="${esc(entry.receive ?? '')}" placeholder="รวม"></label>
@@ -753,6 +805,7 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
           <div>คงเหลือจริง: <b>${fmt(c.remain)}</b></div><div>เบิกใช้รวม: <b>${fmt(c.actualUse)}</b></div>
           <div>รับเข้าแบ่ง: <b>${esc(state.settings.stpName)} ${fmt(c.stpReceive)}</b> / <b>${esc(state.settings.ptrName)} ${fmt(c.ptrReceive)}</b></div><div>สูตร: <b>เมื่อวาน + รับเข้า - คงเหลือ</b></div>
           ${c.autoReceive>0 ? `<div class="auto-receive-note">รับเข้าอัตโนมัติจากยอดนับเกิน: <b>${fmt(c.autoReceive)}</b></div><div class="auto-receive-note">แบ่ง ${esc(state.settings.stpName)} ${fmt(c.autoStpReceive)} / ${esc(state.settings.ptrName)} ${fmt(c.autoPtrReceive)} • ${esc(c.autoReceiveSource)}</div>` : ''}
+          ${c.invalid ? `<div class="data-error-note">❌ ข้อมูลผิดพลาด: ${esc(c.dataError)}<br>ระบบจะไม่อนุญาตให้บันทึกจนกว่าข้อมูลจะถูกต้อง</div>` : ''}
           <div>เบิก ${esc(state.settings.stpName)}: <b>${fmt(c.stpUse)}</b> → เหลือ <b>${fmt(c.stpRemain)}</b></div><div>เบิก ${esc(state.settings.ptrName)}: <b>${fmt(c.ptrUse)}</b> → เหลือ <b>${fmt(c.ptrRemain)}</b></div>
           <div>Min รวม: <b>${fmt(item.min)}</b></div><div>สถานะ: ${status}</div>
         </div>
@@ -784,11 +837,19 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
   function saveToday(){
     const entry = readEntryForm();
     const computed = {};
+    const errors = [];
     state.items.forEach(item => {
       const raw = entry.items[item.id] || {};
       const c = computeItem(item, raw, entry.date, entry.stpLoads, entry.ptrLoads);
+      if(c.invalid) errors.push(`${item.name}: ${c.dataError}`);
       computed[item.id] = packComputedEntry(raw, c);
     });
+    if(errors.length){
+      renderEntryList();
+      renderAll();
+      alert(`❌ ข้อมูลผิดพลาด — ไม่ได้บันทึก\n\n${errors.slice(0,6).join('\n')}\n\nห้ามเบิกเกินยอดที่มีจริง (ยอดเมื่อวาน + รับเข้าวันนี้) เพื่อป้องกันรายงานติดลบ`);
+      return;
+    }
     state.records[entry.date] = {date:entry.date, stpLoads:entry.stpLoads, ptrLoads:entry.ptrLoads, note:entry.note, items:computed, updatedAt:new Date().toISOString()};
     saveState();
     renderAll();
@@ -1073,9 +1134,10 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     record.stpLoads = Math.max(0, Math.round(num(record.stpLoads)));
     record.ptrLoads = Math.max(0, Math.round(num(record.ptrLoads)));
     const c = computeItem(item, entry, iso, record.stpLoads, record.ptrLoads);
+    if(c.invalid) return {ok:false, computed:c};
     record.items[item.id] = packComputedEntry(entry, c);
     record.updatedAt = new Date().toISOString();
-    return record.items[item.id];
+    return {ok:true, computed:c, saved:record.items[item.id]};
   }
   function stackQuickValue(itemId, type){
     const iso = getQuickDate();
@@ -1101,7 +1163,12 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
       entry.quickCountedStack = num(entry.quickCountedStack) + amount;
       entry.counted = num(entry.quickCountedBase) + num(entry.quickCountedStack);
     }
-    updateComputedQuickItem(iso, item, entry);
+    const quickResult = updateComputedQuickItem(iso, item, entry);
+    if(!quickResult.ok){
+      alert(`❌ ข้อมูลผิดพลาด — ไม่ได้บันทึก\n\n${item.name}: ${quickResult.computed.dataError}`);
+      renderQuickCounter();
+      return;
+    }
     record.quickLogs.push({time:new Date().toISOString(), itemId, type, amount});
     saveState();
     input.value = '';
@@ -1175,6 +1242,7 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     renderQuickCounter();
   }
   function quickStatusText(c, item){
+    if(c.invalid) return '<span class="status-error">❌ ข้อมูลผิดพลาด</span>';
     if(c.low) return '<span class="status-low">ต่ำกว่า Min</span>';
     if(c.near) return '<span class="status-mid">ใกล้ Min</span>';
     return '<span class="status-good">พอใช้</span>';
@@ -1209,6 +1277,7 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
         <div class="calc-line">
           <div>เมื่อวาน: <b>${fmt(c.prevStock)}</b></div><div>รับเข้ารวมวันนี้: <b>${fmt(c.receive)}</b></div>
           ${c.autoReceive>0 ? `<div class="auto-receive-note">รับเข้าอัตโนมัติ: <b>${fmt(c.autoReceive)}</b></div><div class="auto-receive-note">${esc(c.autoReceiveSource)}</div>` : ''}
+          ${c.invalid ? `<div class="data-error-note">❌ ${esc(c.dataError)}</div>` : ''}
           <div>คงเหลือจริง: <b>${fmt(c.remain)}</b></div><div>สถานะ: ${quickStatusText(c, item)}</div>
         </div>
         <div class="small-actions"><button class="quick-reset" data-reset-type="counted" data-item-id="${esc(item.id)}">รีเซ็ตคงเหลือ</button><button class="quick-reset" data-reset-type="receive" data-item-id="${esc(item.id)}">รีเซ็ตรับเข้า</button></div>
@@ -1336,12 +1405,32 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstat
     const sheetName = `สำหรับโหลดออก ${sideName}`.slice(0,31);
     return `<Worksheet ss:Name="${esc(sheetName)}"><Table>${xmlColumns()}${rows.join('\n')}</Table><WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><PageSetup><Layout x:Orientation="Landscape"/><PageMargins x:Bottom="0.3" x:Left="0.2" x:Right="0.2" x:Top="0.3"/></PageSetup><FitToPage/><Print><FitWidth>1</FitWidth><FitHeight>1</FitHeight></Print><FreezePanes/><FrozenNoSplit/><SplitHorizontal>5</SplitHorizontal><TopRowBottomPane>5</TopRowBottomPane><ActivePane>2</ActivePane></WorksheetOptions></Worksheet>`;
   }
+  function findReportDataErrors(monthKey){
+    const errors = [];
+    const monthEnd = `${monthKey}-31`;
+    Object.keys(state.records).sort().filter(date => date <= monthEnd).forEach(date => {
+      state.items.forEach(item => {
+        const c = latestComputedForDate(date, item);
+        const snapshotErrors = c.invalid ? (c.dataErrors || [c.dataError]) : validateComputedStock(item, c);
+        if(snapshotErrors.length){
+          errors.push(`${date} • ${item.name}: ${snapshotErrors.filter(Boolean).join(' • ')}`);
+        }
+      });
+    });
+    return errors;
+  }
+
   function exportExcel(which='both'){
+    const monthKey = getMonthKey($('#workDate').value || todayISO());
+    const dataErrors = findReportDataErrors(monthKey);
+    if(dataErrors.length){
+      alert(`❌ ส่งออก Excel ไม่ได้ เพราะพบข้อมูลที่อาจทำให้รายงานติดลบ\n\n${dataErrors.slice(0,8).join('\n')}\n\nกรุณาแก้ข้อมูลผิดพลาดก่อนส่งออก`);
+      return;
+    }
     const sheets = [];
     if(which === 'both' || which === 'stp') sheets.push(sideSheetXml('stp'));
     if(which === 'both' || which === 'ptr') sheets.push(sideSheetXml('ptr'));
     const d = parseISO($('#workDate').value || todayISO());
-    const monthKey = getMonthKey($('#workDate').value || todayISO());
     const suffix = which === 'both' ? 'STP_PTR' : which.toUpperCase();
     const xml = `<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?>
 <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:html="http://www.w3.org/TR/REC-html40">
